@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UGC Cinemas</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="favicon.svg">
+<style>
+  :root {
+    --bg:#ffffff; --fg:#1c1c1e; --muted:#8a8a8e; --faint:#c4c4c8;
+    --line:#ececec; --accent:#c2705a; --maxw:760px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#101012; --fg:#ececee; --muted:#86868c; --faint:#48484e;
+            --line:#222225; --accent:#e0a07a; }
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html { -webkit-font-smoothing:antialiased; }
+  body { background:var(--bg); color:var(--fg); font:15px/1.55 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+  .wrap { max-width:var(--maxw); margin:0 auto; padding:0 24px; }
+  a { color:inherit; }
+
+  header { position:sticky; top:0; z-index:10; background:var(--bg); border-bottom:1px solid var(--line); }
+  .bar { display:flex; align-items:baseline; gap:18px; padding:22px 0 0; }
+  .logo { font-size:17px; font-weight:600; letter-spacing:-.01em; }
+  nav { margin-left:auto; display:flex; gap:20px; }
+  .tab { cursor:pointer; color:var(--muted); padding-bottom:14px; border:0; border-bottom:2px solid transparent; margin-bottom:-1px; background:none; font:inherit; font-size:13.5px; }
+  .tab:hover { color:var(--fg); }
+  .tab.active { color:var(--fg); border-bottom-color:var(--accent); }
+
+  .controls { display:flex; flex-direction:column; gap:13px; padding:20px 0 0; }
+  .pills { display:flex; flex-wrap:wrap; gap:7px 18px; }
+  .pill { cursor:pointer; background:none; border:0; padding:0; font:inherit; font-size:13px; color:var(--fg); }
+  .pill:hover { color:var(--accent); }
+  .pill.off { color:var(--faint); }
+  .pill.all { font-weight:600; margin-right:6px; }
+  .pill.all.on { color:var(--accent); }
+  .days { display:flex; flex-wrap:wrap; gap:5px 18px; }
+  .day { cursor:pointer; background:none; border:0; padding:0; font:inherit; font-size:13px; color:var(--muted); }
+  .day:hover { color:var(--fg); }
+  .day.active { color:var(--accent); font-weight:600; }
+  .tf { margin-top:1px; }
+  .sel { font:inherit; font-size:13px; color:var(--fg); background:var(--bg); border:0; border-bottom:1px solid var(--line); padding:2px 4px 3px 2px; cursor:pointer; }
+  .sel:hover { border-bottom-color:var(--faint); }
+
+  main { padding:8px 0 28px; }
+
+  .csec { margin:30px 0 0; }
+  .chead { display:flex; align-items:center; gap:9px; padding:24px 0 9px; border-bottom:1px solid var(--line); }
+  .cname { font-size:14px; font-weight:600; }
+  .caddr { margin-left:auto; color:var(--faint); font-size:12px; white-space:nowrap; }
+
+  .film, .ev { display:flex; gap:16px; align-items:flex-start; padding:11px 0; border-bottom:1px solid var(--line); }
+  .poster { flex:0 0 auto; width:46px; height:69px; object-fit:cover; border-radius:4px;
+            background:var(--line); box-shadow:0 1px 3px rgba(0,0,0,.14); }
+  .ev .poster { width:34px; height:51px; }
+  .info { flex:1; min-width:0; padding-top:1px; }
+  .ti { font-size:15px; }
+  .ti a { text-decoration:none; }
+  .ti a:hover { color:var(--accent); }
+  .by { color:var(--muted); font-size:13px; margin-top:1px; }
+  .times { flex:0 0 auto; display:flex; flex-wrap:wrap; gap:4px 12px; justify-content:flex-end; max-width:48%; color:var(--muted); font-size:14px; font-variant-numeric:tabular-nums; }
+
+  .ev .t { flex:0 0 46px; color:var(--muted); font-size:14px; font-variant-numeric:tabular-nums; }
+  .cin { flex:0 0 auto; color:var(--muted); font-size:12.5px; white-space:nowrap; }
+
+  .wscroll { overflow-x:auto; padding-top:8px; }
+  .wgrid { display:grid; grid-template-columns:repeat(7,minmax(108px,1fr)); gap:20px; min-width:820px; }
+  .wh { font-size:12px; color:var(--muted); padding-bottom:9px; border-bottom:1px solid var(--line); margin-bottom:11px; }
+  .wh.today { color:var(--accent); font-weight:600; }
+  .wf { margin-bottom:13px; }
+  .wf .ti { font-size:12.5px; line-height:1.3; }
+  .wf .tm { color:var(--muted); font-size:11px; margin-top:2px; font-variant-numeric:tabular-nums; }
+
+  .empty { color:var(--muted); font-size:13px; padding:14px 0; }
+  .note { color:var(--muted); font-size:13.5px; padding:60px 0; text-align:center; }
+
+  footer { border-top:1px solid var(--line); margin-top:10px; }
+  .status { color:var(--muted); font-size:12.5px; padding:18px 0 60px; }
+  .refresh { border:0; background:none; color:var(--muted); cursor:pointer; font:inherit; font-size:12.5px; text-decoration:underline; text-underline-offset:2px; margin-left:8px; }
+  .refresh:hover { color:var(--fg); }
+</style>
+</head>
+<body>
+<h2 class="sr-only">UGC Cinemas showtimes, browsable by cinema, by day, or across the week.</h2>
+
+<header><div class="wrap">
+  <div class="bar">
+    <span class="logo">UGC Cinemas</span>
+    <nav id="tabs">
+      <button class="tab" data-view="cinema">Cinemas</button>
+      <button class="tab active" data-view="day">Daily</button>
+      <button class="tab" data-view="week">Weekly</button>
+    </nav>
+  </div>
+</div></header>
+
+<div class="wrap">
+  <div class="controls" id="controls"></div>
+</div>
+
+<main><div class="wrap" id="view"><div class="note">Loading…</div></div></main>
+
+<footer><div class="wrap"><div class="status" id="status"></div></div></footer>
+
+<script>
+const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+let data = null, inited = false, _dataSig = null;
+const state = { view:"day", dayIndex:0, active:new Set(), minTime:"" };
+
+// Start-time filter options for the "By day" view: [value, label].
+const TIME_OPTS = [
+  ["", "Any time"], ["12:00", "After 12 pm"], ["14:00", "After 2 pm"],
+  ["16:00", "After 4 pm"], ["17:00", "After 5 pm"], ["18:00", "After 6 pm"],
+  ["19:00", "After 7 pm"], ["20:00", "After 8 pm"], ["21:00", "After 9 pm"],
+];
+
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function todayStr(){ const d=new Date(); return [d.getFullYear(), String(d.getMonth()+1).padStart(2,"0"), String(d.getDate()).padStart(2,"0")].join("-"); }
+function isToday(s){ return s===todayStr(); }
+function fmtDay(iso){ const [y,m,d]=iso.split("-").map(Number); const dd=new Date(y,m-1,d); return WD[dd.getDay()]+" "+d; }
+function fmtUpdated(iso){ const [y,m,d]=iso.slice(0,10).split("-").map(Number); const dd=new Date(y,m-1,d); return WD[dd.getDay()]+", "+MO[m-1]+" "+d; }
+function metaLine(f){ return [f.director, f.year].filter(Boolean).join(" · "); }
+
+function filmsFor(name, date){
+  const m = new Map();
+  for(const r of data.rows){
+    if(r.cinema !== name || r.date !== date) continue;
+    const k = r["Movie title"] + "|" + r["Year"];
+    let f = m.get(k);
+    if(!f){ f = {title:r["Movie title"], director:r["Director"], year:r["Year"], lb:r["Letterboxd"], poster:r["Poster"], times:[]}; m.set(k,f); }
+    f.times.push(r.time);
+  }
+  const a = [...m.values()];
+  a.forEach(f => f.times = [...new Set(f.times)].sort());
+  a.sort((x,y) => (x.times[0]||"").localeCompare(y.times[0]||"") || x.title.localeCompare(y.title));
+  return a;
+}
+function titleLink(title, lb){
+  return lb ? `<a href="${esc(lb)}" target="_blank" rel="noopener">${esc(title)}</a>` : esc(title);
+}
+function posterImg(f){
+  if(!f.poster) return "";
+  return `<img class="poster" src="${esc(f.poster)}" alt="" loading="lazy" onerror="this.remove()">`;
+}
+
+function renderCinema(){
+  const date = data.dates[state.dayIndex];
+  let html = "";
+  for(const c of data.cinemas){
+    if(!state.active.has(c.name)) continue;
+    const films = filmsFor(c.name, date);
+    html += `<div class="csec"><div class="chead">
+      <span class="cname">${esc(c.name)}</span>
+      <span class="caddr">${esc(c.address)}</span></div>`;
+    if(films.length){
+      for(const f of films){
+        html += `<div class="film">${posterImg(f)}<div class="info">
+          <div class="ti">${titleLink(f.title, f.lb)}</div>
+          ${metaLine(f) ? `<div class="by">${esc(metaLine(f))}</div>` : ""}
+          </div><div class="times">${f.times.map(t => `<span>${esc(t)}</span>`).join("")}</div></div>`;
+      }
+    } else {
+      html += `<div class="empty">No screenings.</div>`;
+    }
+    html += `</div>`;
+  }
+  return html || `<div class="empty">No cinema selected.</div>`;
+}
+
+function renderDay(){
+  const date = data.dates[state.dayIndex];
+  const rows = [];
+  for(const c of data.cinemas){
+    if(!state.active.has(c.name)) continue;
+    for(const f of filmsFor(c.name, date))
+      for(const t of f.times)
+        rows.push({time:t, title:f.title, lb:f.lb, poster:f.poster, meta:metaLine(f), cinema:c.name, color:c.color});
+  }
+  const filtered = state.minTime ? rows.filter(r => r.time >= state.minTime) : rows;
+  filtered.sort((a,b) => a.time.localeCompare(b.time) || a.title.localeCompare(b.title));
+  if(!filtered.length) return `<div class="empty">No screenings.</div>`;
+  let h = "";
+  for(const r of filtered){
+    h += `<div class="ev"><div class="t">${esc(r.time)}</div>
+      ${posterImg(r)}
+      <div class="info"><div class="ti">${titleLink(r.title, r.lb)}</div>${r.meta ? `<div class="by">${esc(r.meta)}</div>` : ""}</div>
+      <div class="cin">${esc(r.cinema)}</div></div>`;
+  }
+  return h;
+}
+
+function renderWeek(){
+  let h = `<div class="wscroll"><div class="wgrid">`;
+  for(const date of data.dates){
+    h += `<div><div class="wh${isToday(date) ? " today" : ""}">${isToday(date) ? "Today" : fmtDay(date)}</div>`;
+    const seen = new Map();
+    for(const c of data.cinemas){
+      if(!state.active.has(c.name)) continue;
+      for(const f of filmsFor(c.name, date))
+        if(!seen.has(f.title)) seen.set(f.title, {f, color:c.color});
+    }
+    const entries = [...seen.values()].sort((a,b) => (a.f.times[0]||"").localeCompare(b.f.times[0]||""));
+    for(const {f} of entries){
+      h += `<div class="wf"><div class="ti">${titleLink(f.title, f.lb)}</div>
+        <div class="tm">${f.times.join(", ")}</div></div>`;
+    }
+    if(!entries.length) h += `<div class="empty" style="font-size:12px">—</div>`;
+    h += `</div>`;
+  }
+  return h + `</div></div>`;
+}
+
+let _controlsSig = null;
+function renderControls(){
+  const c = document.getElementById("controls");
+  const allActive = state.active.size === data.cinemas.length;
+  // Skip rebuilding the controls when nothing they depend on changed. Otherwise
+  // the 1.5s refresh-poll would recreate the <select> and pills mid-interaction
+  // (closing an open dropdown, so the time filter felt broken while refreshing).
+  const sig = [state.view, data.dates.join(","), data.cinemas.map(x => x.name).join(","),
+    [...state.active].sort().join(","), state.dayIndex, state.minTime].join("|");
+  if(sig === _controlsSig) return;
+  _controlsSig = sig;
+
+  let html = `<div class="pills">` +
+    `<button class="pill all${allActive ? " on" : ""}" data-all="1">All</button>` +
+    data.cinemas.map(x =>
+      `<button class="pill${state.active.has(x.name) ? "" : " off"}" data-n="${esc(x.name)}">${esc(x.name)}</button>`).join("") + `</div>`;
+  if(state.view !== "week"){
+    html += `<div class="days">` + data.dates.map((d,i) =>
+      `<button class="day${i === state.dayIndex ? " active" : ""}" data-i="${i}">${isToday(d) ? "Today" : fmtDay(d)}</button>`).join("") + `</div>`;
+  }
+  if(state.view === "day"){
+    html += `<div class="tf"><select id="minTime" class="sel" aria-label="Filter by start time">` +
+      TIME_OPTS.map(([v,l]) => `<option value="${v}"${v === state.minTime ? " selected" : ""}>${l}</option>`).join("") +
+      `</select></div>`;
+  }
+  c.innerHTML = html;
+  const allBtn = c.querySelector("[data-all]");
+  if(allBtn) allBtn.onclick = () => { state.active = new Set(data.cinemas.map(x => x.name)); renderAll(); };
+  c.querySelectorAll(".pill[data-n]").forEach(b => b.onclick = () => {
+    const n = b.dataset.n;
+    const total = data.cinemas.length;
+    if(state.active.size === total){
+      // All active: clicking one isolates it (show only that cinema).
+      state.active = new Set([n]);
+    } else if(state.active.size === 1 && state.active.has(n)){
+      // Only this one active: clicking it deactivates it and activates all the rest.
+      state.active = new Set(data.cinemas.map(c => c.name).filter(name => name !== n));
+    } else if(state.active.has(n)){
+      state.active.delete(n);
+    } else {
+      state.active.add(n);
+    }
+    renderAll();
+  });
+  c.querySelectorAll(".day").forEach(b => b.onclick = () => { state.dayIndex = +b.dataset.i; renderAll(); });
+  const sel = c.querySelector("#minTime");
+  if(sel) sel.onchange = () => { state.minTime = sel.value; renderAll(); };
+}
+
+function renderStatus(){
+  const s = document.getElementById("status");
+  const parts = [];
+  if(data.generated_at) parts.push("Updated " + fmtUpdated(data.generated_at));
+  if(data.status === "scraping") parts.push("refreshing…");
+  if(!data.tmdb) parts.push("no TMDB key");
+  s.innerHTML = esc(parts.join("  ·  ")) + `<button class="refresh" id="refresh">Refresh</button>`;
+  s.querySelector("#refresh").onclick = doRefresh;
+}
+
+function renderAll(){
+  renderControls();
+  renderStatus();
+  document.getElementById("view").innerHTML =
+    state.view === "cinema" ? renderCinema() :
+    state.view === "day"    ? renderDay()    : renderWeek();
+}
+
+async function doRefresh(){
+  try {
+    const r = await fetch("refresh");
+    if(!r.ok) throw new Error();
+    data.status = "scraping";
+    renderStatus();
+    setTimeout(load, 1500);
+  } catch(e) {
+    location.reload();  // static hosting: no live server, just re-read data.json
+  }
+}
+
+async function load(){
+  let r;
+  try { r = await fetch("data.json", {cache:"no-store"}); }
+  catch(e) { document.getElementById("view").innerHTML = `<div class="note">Could not load data.json.</div>`; return; }
+  data = await r.json();
+  if(data.status === "scraping" && !data.rows.length){
+    document.getElementById("status").textContent = "updating…";
+    document.getElementById("view").innerHTML = `<div class="note">Fetching the latest week… (~30–60s)</div>`;
+    setTimeout(load, 1500);
+    return;
+  }
+  if(!inited){
+    state.active = new Set(data.cinemas.map(c => c.name));
+    const i = data.dates.indexOf(todayStr());
+    state.dayIndex = i >= 0 ? i : 0;
+    inited = true;
+  } else if(state.dayIndex >= data.dates.length){
+    state.dayIndex = 0;
+  }
+  // Only re-render when the fetched data actually changed. During a refresh the
+  // same cached rows are served every 1.5s; re-rendering them each time made the
+  // view flicker. (User interactions render immediately via their own handlers.)
+  const sig = [data.status, data.generated_at, data.rows.length,
+    data.dates.join(","), data.cinemas.map(c => c.name).join(",")].join("|");
+  if(sig !== _dataSig){
+    _dataSig = sig;
+    renderAll();
+  }
+  if(data.status === "scraping") setTimeout(load, 1500);
+}
+
+document.getElementById("tabs").onclick = (e) => {
+  const t = e.target.closest(".tab"); if(!t) return;
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+  t.classList.add("active");
+  state.view = t.dataset.view;
+  renderAll();
+};
+
+load();
+</script>
+</body>
+</html>

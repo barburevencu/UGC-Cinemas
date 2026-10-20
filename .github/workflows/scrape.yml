@@ -1,0 +1,69 @@
+# Scrapes the week's showtimes every morning, commits the refreshed data,
+# and publishes index.html + data.json to GitHub Pages.
+name: Scrape and publish
+
+on:
+  schedule:
+    - cron: "0 4 * * *"   # 04:00 UTC = 05:00/06:00 in Paris
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Scrape showtimes
+        if: github.event_name != 'push'
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          TZ: Europe/Paris
+        run: |
+          python3 -c "
+          import sys, app
+          app.run_scrape()
+          if app._state['error'] or not app._state['rows']:
+              sys.exit('Scrape failed: ' + str(app._state['error'] or 'no rows'))
+          print(len(app._state['rows']), 'showtimes')
+          "
+
+      - name: Commit refreshed data
+        if: github.event_name != 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add ugc.csv data.json
+          git diff --cached --quiet || git commit -m "Update showtimes $(date +%F)"
+          git push
+
+      - name: Prepare site
+        run: mkdir _site && cp index.html data.json favicon.svg _site/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: scrape
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

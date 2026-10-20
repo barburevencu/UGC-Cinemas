@@ -1,0 +1,5 @@
+# Contains the TMDB API key in plain text — never commit.
+run_app.command
+__pycache__/
+app.log
+.DS_Store
