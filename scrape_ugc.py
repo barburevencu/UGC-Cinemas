@@ -33,27 +33,35 @@ import urllib.parse
 import urllib.request
 
 # (AlloCiné salle id, display name) for each cinema to scrape.
+# Grouped by neighbourhood, then alphabetical within each group (ignoring a
+# leading "Le/La/Cinéma"). This order drives the cinema pills and the Cinemas
+# view, so nearby houses — e.g. the two mk2 Odéons — sit together.
 CINEMAS = [
-    ("C0015", "Christine Cinéma Club"),
-    ("C0071", "Écoles Cinéma Club"),
+    # Latin Quarter (5th)
     ("C0073", "Le Champo"),
-    ("C0020", "Filmothèque du Quartier Latin"),
-    ("C0016", "Studio Galande"),
-    ("C0072", "Le Grand Action"),
-    ("C2954", "MK2 Bibliothèque"),
+    ("C0071", "Écoles Cinéma Club"),
     ("W7504", "Épée de Bois"),
-    ("C0093", "Le Lucernaire"),
+    ("C0020", "Filmothèque du Quartier Latin"),
+    ("C0072", "Le Grand Action"),
     ("C0076", "Cinéma du Panthéon"),
-    ("C0065", "Le Grand Rex"),
-    ("C0089", "Max Linder Panorama"),
-    ("C0041", "Nouvel Odéon"),
-    ("C0083", "Studio des Ursulines"),
     ("C0074", "Reflet Médicis"),
+    ("C0083", "Studio des Ursulines"),
+    ("C0016", "Studio Galande"),
+    # Odéon / Saint-Germain (6th)
+    ("C0015", "Christine Cinéma Club"),
+    ("C0093", "Le Lucernaire"),
+    ("C0097", "mk2 Odéon St-Germain"),
+    ("C0092", "mk2 Odéon St-Michel"),
+    ("C0041", "Nouvel Odéon"),
+    # Right Bank & outliers
+    ("C0065", "Le Grand Rex"),            # 2nd
+    ("C0089", "Max Linder Panorama"),     # 9th
+    ("C2954", "mk2 Bibliothèque"),        # 13th
 ]
 
 ENDPOINT = "https://www.allocine.fr/_/showtimes/theater-{salle}/d-{date}/"
 # Page 2+ of a day's results use a trailing "p-{page}/" segment. Big cinemas
-# (e.g. MK2 Bibliothèque) run more films than fit on one page; see fetch_all.
+# (e.g. mk2 Bibliothèque) run more films than fit on one page; see fetch_all.
 PAGED_ENDPOINT = "https://www.allocine.fr/_/showtimes/theater-{salle}/d-{date}/p-{page}/"
 
 # Number of days to scrape, starting from the given (or today's) date.
