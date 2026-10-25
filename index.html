@@ -74,6 +74,24 @@
   .wf .ti { font-size:12.5px; line-height:1.3; }
   .wf .tm { color:var(--muted); font-size:11px; margin-top:2px; font-variant-numeric:tabular-nums; }
 
+  /* Movies view: one section per film, then its screenings grouped by day. */
+  .msec { margin:0; }
+  .mhead { display:flex; gap:16px; align-items:flex-start; padding:26px 0 10px; border-bottom:1px solid var(--line); }
+  .mhead .poster { width:46px; height:69px; }
+  .minfo { flex:1; min-width:0; padding-top:1px; }
+  .mtitle { font-size:15px; font-weight:600; }
+  .mtitle a { text-decoration:none; }
+  .mtitle a:hover { color:var(--accent); }
+  .mby { color:var(--muted); font-size:13px; margin-top:1px; }
+  .mscreen { display:flex; gap:14px; padding:9px 0; border-bottom:1px solid var(--line); }
+  .mdate { flex:0 0 72px; font-size:13px; font-weight:500; }
+  .mdate.today { color:var(--accent); }
+  .mcins { flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
+  .mcin { display:flex; gap:12px; align-items:baseline; }
+  .mcname { flex:1; min-width:0; color:var(--muted); font-size:13px; }
+  .mtimes { flex:0 0 auto; display:flex; flex-wrap:wrap; gap:4px 10px; justify-content:flex-end;
+            max-width:52%; color:var(--muted); font-size:14px; font-variant-numeric:tabular-nums; }
+
   .empty { color:var(--muted); font-size:13px; padding:14px 0; }
   .note { color:var(--muted); font-size:13.5px; padding:60px 0; text-align:center; }
 
@@ -90,6 +108,7 @@
     <nav id="tabs">
       <button class="tab" data-view="cinema">Cinemas</button>
       <button class="tab active" data-view="day">Daily</button>
+      <button class="tab" data-view="movie">Movies</button>
       <button class="tab" data-view="week">Weekly</button>
     </nav>
   </div>
@@ -107,7 +126,7 @@
 const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 let data = null, inited = false, _dataSig = null;
-const state = { view:"day", dayIndex:0, active:new Set(), minTime:"" };
+const state = { view:"day", dayIndex:0, active:new Set(), minTime:"", daysActive:new Set() };
 
 // Start-time filter options for the "By day" view: [value, label].
 const TIME_OPTS = [
@@ -212,6 +231,49 @@ function renderWeek(){
   return h + `</div></div>`;
 }
 
+function renderMovies(){
+  // Days toggled on (in chronological order) are the equivalent of the Daily
+  // view's cinema toggles: here they filter which days each film's screenings show.
+  const days = data.dates.filter(d => state.daysActive.has(d));
+  // movie key -> {..., byDay: Map(date -> Map(cinema -> Set(times)))}
+  const movies = new Map();
+  for(const r of data.rows){
+    if(!state.active.has(r.cinema)) continue;
+    if(!state.daysActive.has(r.date)) continue;
+    if(state.minTime && r.time < state.minTime) continue;
+    const k = r["Movie title"] + "|" + r["Year"];
+    let mv = movies.get(k);
+    if(!mv){ mv = {title:r["Movie title"], director:r["Director"], year:r["Year"], lb:r["Letterboxd"], poster:r["Poster"], byDay:new Map()}; movies.set(k, mv); }
+    let dm = mv.byDay.get(r.date);
+    if(!dm){ dm = new Map(); mv.byDay.set(r.date, dm); }
+    let ts = dm.get(r.cinema);
+    if(!ts){ ts = new Set(); dm.set(r.cinema, ts); }
+    ts.add(r.time);
+  }
+  if(!movies.size) return `<div class="empty">No screenings.</div>`;
+  const list = [...movies.values()].sort((a,b) => a.title.localeCompare(b.title));
+  let h = "";
+  for(const mv of list){
+    h += `<div class="msec"><div class="mhead">${posterImg(mv)}
+      <div class="minfo"><div class="mtitle">${titleLink(mv.title, mv.lb)}</div>
+      ${metaLine(mv) ? `<div class="mby">${esc(metaLine(mv))}</div>` : ""}</div></div>`;
+    for(const date of days){
+      const dm = mv.byDay.get(date);
+      if(!dm) continue;
+      const cins = [...dm.keys()].sort((a,b) => a.localeCompare(b));
+      let inner = "";
+      for(const cn of cins){
+        const times = [...dm.get(cn)].sort();
+        inner += `<div class="mcin"><span class="mcname">${esc(cn)}</span>` +
+          `<span class="mtimes">${times.map(t => `<span>${esc(t)}</span>`).join("")}</span></div>`;
+      }
+      h += `<div class="mscreen"><div class="mdate${isToday(date) ? " today" : ""}">${isToday(date) ? "Today" : fmtDay(date)}</div>` +
+        `<div class="mcins">${inner}</div></div>`;
+    }
+  }
+  return h;
+}
+
 let _controlsSig = null;
 function renderControls(){
   const c = document.getElementById("controls");
@@ -220,7 +282,8 @@ function renderControls(){
   // the 1.5s refresh-poll would recreate the <select> and pills mid-interaction
   // (closing an open dropdown, so the time filter felt broken while refreshing).
   const sig = [state.view, data.dates.join(","), data.cinemas.map(x => x.name).join(","),
-    [...state.active].sort().join(","), state.dayIndex, state.minTime].join("|");
+    [...state.active].sort().join(","), state.dayIndex, state.minTime,
+    [...state.daysActive].sort().join(",")].join("|");
   if(sig === _controlsSig) return;
   _controlsSig = sig;
 
@@ -228,11 +291,20 @@ function renderControls(){
     `<button class="pill all${allActive ? " on" : ""}" data-all="1">All</button>` +
     data.cinemas.map(x =>
       `<button class="pill${state.active.has(x.name) ? "" : " off"}" data-n="${esc(x.name)}">${esc(x.name)}</button>`).join("") + `</div>`;
-  if(state.view !== "week"){
+  if(state.view === "cinema" || state.view === "day"){
+    // Single-day selector: the Cinemas and Daily views show one day at a time.
     html += `<div class="days">` + data.dates.map((d,i) =>
       `<button class="day${i === state.dayIndex ? " active" : ""}" data-i="${i}">${isToday(d) ? "Today" : fmtDay(d)}</button>`).join("") + `</div>`;
   }
-  if(state.view === "day"){
+  if(state.view === "movie"){
+    // Day on/off toggles: the Movies view's answer to the Daily view's cinema pills.
+    const allDays = state.daysActive.size === data.dates.length;
+    html += `<div class="pills">` +
+      `<button class="pill all${allDays ? " on" : ""}" data-dall="1">All</button>` +
+      data.dates.map(d =>
+        `<button class="pill${state.daysActive.has(d) ? "" : " off"}" data-d="${esc(d)}">${isToday(d) ? "Today" : fmtDay(d)}</button>`).join("") + `</div>`;
+  }
+  if(state.view === "day" || state.view === "movie"){
     html += `<div class="tf"><select id="minTime" class="sel" aria-label="Filter by start time">` +
       TIME_OPTS.map(([v,l]) => `<option value="${v}"${v === state.minTime ? " selected" : ""}>${l}</option>`).join("") +
       `</select></div>`;
@@ -257,6 +329,24 @@ function renderControls(){
     renderAll();
   });
   c.querySelectorAll(".day").forEach(b => b.onclick = () => { state.dayIndex = +b.dataset.i; renderAll(); });
+  const allDaysBtn = c.querySelector("[data-dall]");
+  if(allDaysBtn) allDaysBtn.onclick = () => { state.daysActive = new Set(data.dates); renderAll(); };
+  c.querySelectorAll(".pill[data-d]").forEach(b => b.onclick = () => {
+    const d = b.dataset.d;
+    const total = data.dates.length;
+    if(state.daysActive.size === total){
+      // All active: clicking one isolates it (show only that day).
+      state.daysActive = new Set([d]);
+    } else if(state.daysActive.size === 1 && state.daysActive.has(d)){
+      // Only this one active: clicking it reactivates all the others.
+      state.daysActive = new Set(data.dates.filter(x => x !== d));
+    } else if(state.daysActive.has(d)){
+      state.daysActive.delete(d);
+    } else {
+      state.daysActive.add(d);
+    }
+    renderAll();
+  });
   const sel = c.querySelector("#minTime");
   if(sel) sel.onchange = () => { state.minTime = sel.value; renderAll(); };
 }
@@ -276,7 +366,8 @@ function renderAll(){
   renderStatus();
   document.getElementById("view").innerHTML =
     state.view === "cinema" ? renderCinema() :
-    state.view === "day"    ? renderDay()    : renderWeek();
+    state.view === "day"    ? renderDay()    :
+    state.view === "movie"  ? renderMovies() : renderWeek();
 }
 
 async function load(){
@@ -292,12 +383,18 @@ async function load(){
   }
   if(!inited){
     state.active = new Set(data.cinemas.map(c => c.name));
+    state.daysActive = new Set(data.dates);
     const i = data.dates.indexOf(todayStr());
     state.dayIndex = i >= 0 ? i : 0;
     inited = true;
   } else if(state.dayIndex >= data.dates.length){
     state.dayIndex = 0;
   }
+  // Keep the Movies view's day toggles in sync when the window of dates shifts
+  // (e.g. the daily refresh drops yesterday and adds a new day).
+  const valid = new Set(data.dates);
+  for(const d of [...state.daysActive]) if(!valid.has(d)) state.daysActive.delete(d);
+  if(!state.daysActive.size) state.daysActive = new Set(data.dates);
   // Only re-render when the fetched data actually changed. During a refresh the
   // same cached rows are served every 1.5s; re-rendering them each time made the
   // view flicker. (User interactions render immediately via their own handlers.)

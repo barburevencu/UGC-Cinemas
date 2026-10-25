@@ -44,6 +44,11 @@ CINEMAS = [
     ("W7504", "Épée de Bois"),
     ("C0093", "Le Lucernaire"),
     ("C0076", "Cinéma du Panthéon"),
+    ("C0065", "Le Grand Rex"),
+    ("C0089", "Max Linder Panorama"),
+    ("C0041", "Nouvel Odéon"),
+    ("C0083", "Studio des Ursulines"),
+    ("C0074", "Reflet Médicis"),
 ]
 
 ENDPOINT = "https://www.allocine.fr/_/showtimes/theater-{salle}/d-{date}/"

@@ -47,6 +47,11 @@ CINEMA_META = {
     "Épée de Bois":                  ("100 rue Mouffetard, 75005",     "#d98c7a"),
     "Le Lucernaire":                 ("53 rue N.-D.-des-Champs, 75006", "#9db07c"),
     "Cinéma du Panthéon":            ("13 rue Victor Cousin, 75005",   "#b0a4d4"),
+    "Le Grand Rex":                  ("1 bd Poissonnière, 75002",      "#d98cae"),
+    "Max Linder Panorama":           ("24 bd Poissonnière, 75009",     "#6fa8a0"),
+    "Nouvel Odéon":                  ("6 rue de l'École-de-Médecine, 75006", "#c7b06a"),
+    "Studio des Ursulines":          ("10 rue des Ursulines, 75005",   "#9c8cc4"),
+    "Reflet Médicis":                ("3 rue Champollion, 75005",      "#cf9b6f"),
 }
 
 # In-memory cache of the most recent scrape, guarded by a lock.
