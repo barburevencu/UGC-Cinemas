@@ -79,8 +79,6 @@
 
   footer { border-top:1px solid var(--line); margin-top:10px; }
   .status { color:var(--muted); font-size:12.5px; padding:18px 0 60px; }
-  .refresh { border:0; background:none; color:var(--muted); cursor:pointer; font:inherit; font-size:12.5px; text-decoration:underline; text-underline-offset:2px; margin-left:8px; }
-  .refresh:hover { color:var(--fg); }
 </style>
 </head>
 <body>
@@ -264,13 +262,13 @@ function renderControls(){
 }
 
 function renderStatus(){
+  // Data is refreshed by the scheduled GitHub Action, not from the page, so
+  // there's no manual Refresh control or live "refreshing…" state here.
   const s = document.getElementById("status");
   const parts = [];
   if(data.generated_at) parts.push("Updated " + fmtUpdated(data.generated_at));
-  if(data.status === "scraping") parts.push("refreshing…");
   if(!data.tmdb) parts.push("no TMDB key");
-  s.innerHTML = esc(parts.join("  ·  ")) + `<button class="refresh" id="refresh">Refresh</button>`;
-  s.querySelector("#refresh").onclick = doRefresh;
+  s.textContent = parts.join("  ·  ");
 }
 
 function renderAll(){
@@ -279,18 +277,6 @@ function renderAll(){
   document.getElementById("view").innerHTML =
     state.view === "cinema" ? renderCinema() :
     state.view === "day"    ? renderDay()    : renderWeek();
-}
-
-async function doRefresh(){
-  try {
-    const r = await fetch("refresh");
-    if(!r.ok) throw new Error();
-    data.status = "scraping";
-    renderStatus();
-    setTimeout(load, 1500);
-  } catch(e) {
-    location.reload();  // static hosting: no live server, just re-read data.json
-  }
 }
 
 async function load(){
@@ -321,7 +307,6 @@ async function load(){
     _dataSig = sig;
     renderAll();
   }
-  if(data.status === "scraping") setTimeout(load, 1500);
 }
 
 document.getElementById("tabs").onclick = (e) => {
