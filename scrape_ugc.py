@@ -121,6 +121,10 @@ def strip_disambiguation(name):
     return re.sub(r"\s*\((?:[IVXLCDM]+|\d+)\)\s*$", "", name).strip()
 
 
+# Director name fixes (AlloCiné credits use some birth/alternate names).
+DIRECTOR_ALIASES = {"Charles Chaplin": "Charlie Chaplin"}
+
+
 def get_director(movie):
     """Join all credited directors, e.g. 'Joel Coen, Ethan Coen'."""
     names = []
@@ -132,6 +136,7 @@ def get_director(movie):
                 p for p in (person.get("firstName"), person.get("lastName")) if p
             ).strip()
             full = strip_disambiguation(full)
+            full = DIRECTOR_ALIASES.get(full, full)
             if full:
                 names.append(full)
     return ", ".join(names)
@@ -143,6 +148,19 @@ def get_year(movie):
     if year is None:
         year = movie.get("productionYear")
     return year or ""
+
+
+# Short country labels for display.
+COUNTRY_ABBR = {"United Kingdom": "UK"}
+
+
+def get_country(movie):
+    """First production country, with UK as a short label for display."""
+    for c in movie.get("countries") or []:
+        name = c.get("name") or c.get("localizedName")
+        if name:
+            return COUNTRY_ABBR.get(name, name)
+    return ""
 
 
 def iter_showtimes(result):
@@ -187,6 +205,7 @@ def collect_rows(data, cinema_name, date_str):
             continue
         director = get_director(movie)
         year = get_year(movie)
+        country = get_country(movie)
         for time in iter_showtimes(result):
             rows.append(
                 {
@@ -194,6 +213,7 @@ def collect_rows(data, cinema_name, date_str):
                     "Original title": original,  # stable key for the CSV cache
                     "Director": director,
                     "Year": year,
+                    "Country": country,
                     "cinema": cinema_name,
                     "date": date_str,
                     "time": time,
@@ -447,7 +467,7 @@ def enrich_rows(rows, key, cache=None):
 
 def write_csv(rows, path):
     fields = [
-        "Movie title", "Original title", "Director", "Year", "cinema",
+        "Movie title", "Original title", "Director", "Year", "Country", "cinema",
         "date", "time", "Letterboxd", "Poster",
     ]
     with open(path, "w", newline="", encoding="utf-8") as f:

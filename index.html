@@ -3,9 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>UGC Cinemas</title>
+<title>Paris Cinemas</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="apple-touch-icon" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@500;800;900&family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap">
 <style>
   :root {
     --bg:#ffffff; --fg:#1c1c1e; --muted:#8a8a8e; --faint:#c4c4c8;
@@ -17,18 +20,30 @@
   }
   * { box-sizing:border-box; margin:0; padding:0; }
   html { -webkit-font-smoothing:antialiased; }
-  body { background:var(--bg); color:var(--fg); font:15px/1.55 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  body { background-color:var(--bg); background-image:var(--page-bg-img,none); background-size:5px 5px;
+         color:var(--fg); font:15px/1.55 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
   .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
   .wrap { max-width:var(--maxw); margin:0 auto; padding:0 24px; }
   a { color:inherit; }
 
   header { position:sticky; top:0; z-index:10; background:var(--bg); border-bottom:1px solid var(--line); }
-  .bar { display:flex; align-items:baseline; gap:18px; padding:22px 0 0; }
+  .bar { display:flex; align-items:baseline; gap:18px; padding:16px 0 0; }
   .logo { font-size:17px; font-weight:600; letter-spacing:-.01em; }
   nav { margin-left:auto; display:flex; gap:20px; }
-  .tab { cursor:pointer; color:var(--muted); padding-bottom:14px; border:0; border-bottom:2px solid transparent; margin-bottom:-1px; background:none; font:inherit; font-size:13.5px; }
+  .tab { cursor:pointer; color:var(--muted); padding-bottom:10px; border:0; border-bottom:2px solid transparent; margin-bottom:-1px; background:none; font:inherit; font-size:13.5px; }
   .tab:hover { color:var(--fg); }
   .tab.active { color:var(--fg); border-bottom-color:var(--accent); }
+
+  /* Light switch — a small, quiet ink slider tucked beside the wordmark; the
+     knob slides pink (left = Riso) to blue (right = Riso Noir). */
+  .brand { display:flex; align-items:center; gap:9px; }
+  .lswitch { flex:0 0 auto; background:none; border:0; padding:0; cursor:pointer; line-height:0; }
+  .lswitch .trk { display:block; width:30px; height:16px; border:1.5px solid var(--faint);
+                  border-radius:999px; padding:1.5px; }
+  .lswitch .knob { display:block; width:10px; height:10px; border-radius:999px; background:#ff2e8a;
+                   transition:transform .18s, background .18s; }
+  body[data-skin="risonoir"] .lswitch .knob { transform:translateX(14px); background:#6a97ff; }
+  .lswitch:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:6px; }
 
   .controls { display:flex; flex-direction:column; gap:13px; padding:20px 0 0; }
   .pills { display:flex; flex-wrap:wrap; gap:7px 18px; }
@@ -37,11 +52,16 @@
   .pill.off { color:var(--faint); }
   .pill.all { font-weight:600; margin-right:6px; }
   .pill.all.on { color:var(--accent); }
-  .days { display:flex; flex-wrap:wrap; gap:5px 18px; }
+  .dayrow { display:flex; align-items:baseline; gap:10px 16px; flex-wrap:wrap; }
+  .days { display:flex; flex-wrap:wrap; gap:5px 18px; flex:1 1 auto; min-width:0; }
   .day { cursor:pointer; background:none; border:0; padding:0; font:inherit; font-size:13px; color:var(--muted); }
   .day:hover { color:var(--fg); }
   .day.active { color:var(--accent); font-weight:600; }
-  .tf { margin-top:1px; }
+  .sel { margin-left:auto; }
+  .dday { font-size:12px; font-weight:600; color:var(--muted); padding:18px 0 7px; border-bottom:1px solid var(--line); }
+  .dday.today { color:var(--accent); }
+  .cday { font-size:12px; font-weight:600; color:var(--muted); padding:13px 0 3px; }
+  .cday.today { color:var(--accent); }
   .sel { font:inherit; font-size:13px; color:var(--fg); background:var(--bg); border:0; border-bottom:1px solid var(--line); padding:2px 4px 3px 2px; cursor:pointer; }
   .sel:hover { border-bottom-color:var(--faint); }
 
@@ -66,14 +86,6 @@
   .ev .t { flex:0 0 46px; color:var(--muted); font-size:14px; font-variant-numeric:tabular-nums; }
   .cin { flex:0 0 auto; color:var(--muted); font-size:12.5px; white-space:nowrap; }
 
-  .wscroll { overflow-x:auto; padding-top:8px; }
-  .wgrid { display:grid; grid-template-columns:repeat(7,minmax(108px,1fr)); gap:20px; min-width:820px; }
-  .wh { font-size:12px; color:var(--muted); padding-bottom:9px; border-bottom:1px solid var(--line); margin-bottom:11px; }
-  .wh.today { color:var(--accent); font-weight:600; }
-  .wf { margin-bottom:13px; }
-  .wf .ti { font-size:12.5px; line-height:1.3; }
-  .wf .tm { color:var(--muted); font-size:11px; margin-top:2px; font-variant-numeric:tabular-nums; }
-
   /* Movies view: one section per film, then its screenings grouped by day. */
   .msec { margin:0; }
   .mhead { display:flex; gap:16px; align-items:flex-start; padding:26px 0 10px; border-bottom:1px solid var(--line); }
@@ -97,19 +109,118 @@
 
   footer { border-top:1px solid var(--line); margin-top:10px; }
   .status { color:var(--muted); font-size:12.5px; padding:18px 0 60px; }
+
+  /* Narrow screens: let the header wrap so the tabs and the skin
+     switcher never overflow — tabs drop to their own line. */
+  @media (max-width:560px) {
+    .bar { flex-wrap:wrap; gap:12px 16px; }
+    nav { margin-left:0; order:2; width:100%; flex-wrap:wrap; gap:4px 16px; }
+  }
+
+  /* ============================================================
+     SKINS — two looks over the shared structure, toggled by
+     body[data-skin] via the light switch: Riso (light) / Riso Noir (dark).
+     ============================================================ */
+
+  /* ---- Riso Repertory (two-ink ciné-club zine) ---- */
+  body[data-skin="riso"] {
+    --bg:#f1ece0; --fg:#1b1a17; --muted:#6b665b; --faint:#aaa192;
+    --line:#1b1a17; --accent:#ff2e8a; --accent2:#0047ff; color-scheme:light;
+  }
+  body[data-skin="riso"] .logo { font-family:"Archivo",system-ui,sans-serif; font-weight:900;
+    letter-spacing:-.02em; font-size:19px; text-shadow:1.4px 1.4px 0 #ff2e8a; }
+  body[data-skin="riso"] .tab { font-family:"Space Mono",ui-monospace,monospace; font-size:12px;
+    text-transform:lowercase; }
+  body[data-skin="riso"] .tab.active { color:var(--accent2); border-bottom-color:var(--accent);
+    border-bottom-width:3px; }
+  body[data-skin="riso"] .pill { border:1.5px solid var(--fg); border-radius:2px; padding:3px 9px;
+    font-family:"Space Mono",ui-monospace,monospace; font-size:11px; background:#fff; color:var(--fg); }
+  body[data-skin="riso"] .pill.off { color:var(--muted); border-color:var(--faint); background:transparent; }
+  body[data-skin="riso"] .pill.all { margin-right:0; }
+  body[data-skin="riso"] .pill.all.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  body[data-skin="riso"] .pills { gap:7px; }
+  body[data-skin="riso"] .day { font-family:"Space Mono",ui-monospace,monospace; font-size:11.5px; }
+  body[data-skin="riso"] .day.active { color:var(--accent2); font-weight:700; }
+  body[data-skin="riso"] .ti,
+  body[data-skin="riso"] .cname,
+  body[data-skin="riso"] .mtitle { font-family:"Archivo",system-ui,sans-serif; font-weight:800;
+    letter-spacing:-.01em; }
+  body[data-skin="riso"] .by,
+  body[data-skin="riso"] .mby,
+  body[data-skin="riso"] .caddr,
+  body[data-skin="riso"] .cin,
+  body[data-skin="riso"] .status { font-family:"Space Mono",ui-monospace,monospace; font-size:11.5px; }
+  body[data-skin="riso"] .film,
+  body[data-skin="riso"] .ev,
+  body[data-skin="riso"] .chead,
+  body[data-skin="riso"] .mscreen { border-bottom-width:2px; }
+  body[data-skin="riso"] .times,
+  body[data-skin="riso"] .mtimes,
+  body[data-skin="riso"] .ev .t { font-family:"Space Mono",ui-monospace,monospace;
+    color:var(--accent2); font-weight:700; }
+  body[data-skin="riso"] .poster { background:#0047ff; box-shadow:2.5px 2.5px 0 #ff2e8a; }
+
+  /* ---- 3 · Riso Noir (the two-ink zine on a black ground) ---- */
+  body[data-skin="risonoir"] {
+    --bg:#15131a; --fg:#ece6d6; --muted:#8f897c; --faint:#565064;
+    --line:#4b4654; --accent:#ff2e8a; --accent2:#6a97ff; color-scheme:dark;
+  }
+  body[data-skin="risonoir"] .logo { font-family:"Archivo",system-ui,sans-serif; font-weight:900;
+    letter-spacing:-.02em; font-size:19px; text-shadow:1.4px 1.4px 0 #ff2e8a; }
+  body[data-skin="risonoir"] .tab { font-family:"Space Mono",ui-monospace,monospace; font-size:12px;
+    text-transform:lowercase; }
+  body[data-skin="risonoir"] .tab.active { color:var(--accent2); border-bottom-color:var(--accent);
+    border-bottom-width:3px; }
+  body[data-skin="risonoir"] .pill { border:1.5px solid var(--fg); border-radius:2px; padding:3px 9px;
+    font-family:"Space Mono",ui-monospace,monospace; font-size:11px; background:transparent; color:var(--fg); }
+  body[data-skin="risonoir"] .pill.off { color:var(--muted); border-color:var(--faint); background:transparent; }
+  body[data-skin="risonoir"] .pill.all { margin-right:0; }
+  body[data-skin="risonoir"] .pill.all.on { background:var(--accent); color:#15131a; border-color:var(--accent); }
+  body[data-skin="risonoir"] .pills { gap:7px; }
+  body[data-skin="risonoir"] .day { font-family:"Space Mono",ui-monospace,monospace; font-size:11.5px; }
+  body[data-skin="risonoir"] .day.active { color:var(--accent2); font-weight:700; }
+  body[data-skin="risonoir"] .ti,
+  body[data-skin="risonoir"] .cname,
+  body[data-skin="risonoir"] .mtitle { font-family:"Archivo",system-ui,sans-serif; font-weight:800;
+    letter-spacing:-.01em; }
+  body[data-skin="risonoir"] .by,
+  body[data-skin="risonoir"] .mby,
+  body[data-skin="risonoir"] .caddr,
+  body[data-skin="risonoir"] .cin,
+  body[data-skin="risonoir"] .status { font-family:"Space Mono",ui-monospace,monospace; font-size:11.5px; }
+  body[data-skin="risonoir"] .film,
+  body[data-skin="risonoir"] .ev,
+  body[data-skin="risonoir"] .chead,
+  body[data-skin="risonoir"] .mscreen { border-bottom-width:2px; }
+  body[data-skin="risonoir"] .times,
+  body[data-skin="risonoir"] .mtimes,
+  body[data-skin="risonoir"] .ev .t { font-family:"Space Mono",ui-monospace,monospace;
+    color:var(--accent2); font-weight:700; }
+  body[data-skin="risonoir"] .poster { background:#3a63d6; box-shadow:2.5px 2.5px 0 #ff2e8a; }
+
+  /* Time filter ("Any time") takes each skin's type + a matching pill box. */
+  body[data-skin="riso"] .sel,
+  body[data-skin="risonoir"] .sel { font-family:"Space Mono",ui-monospace,monospace; font-size:11.5px;
+    border:0; border-radius:0; padding:0 2px; background:transparent; color:var(--muted); text-align:right; }
+  body[data-skin="riso"] .sel:hover,
+  body[data-skin="risonoir"] .sel:hover { color:var(--fg); }
 </style>
 </head>
-<body>
-<h2 class="sr-only">UGC Cinemas showtimes, browsable by cinema, by day, or across the week.</h2>
+<body data-skin="riso">
+<h2 class="sr-only">Paris Cinemas showtimes, browsable by cinema, by day, or across the week.</h2>
 
 <header><div class="wrap">
   <div class="bar">
-    <span class="logo">UGC Cinemas</span>
+    <div class="brand">
+      <span class="logo">Paris Cinemas</span>
+      <button class="lswitch" id="lswitch" aria-label="Switch between light and dark" aria-pressed="false">
+        <span class="trk"><span class="knob"></span></span>
+      </button>
+    </div>
     <nav id="tabs">
-      <button class="tab" data-view="cinema">Cinemas</button>
       <button class="tab active" data-view="day">Daily</button>
       <button class="tab" data-view="movie">Movies</button>
-      <button class="tab" data-view="week">Weekly</button>
+      <button class="tab" data-view="cinema">Cinemas</button>
     </nav>
   </div>
 </div></header>
@@ -126,7 +237,7 @@
 const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 let data = null, inited = false, _dataSig = null;
-const state = { view:"day", dayIndex:0, active:new Set(), minTime:"", daysActive:new Set() };
+const state = { view:"day", active:new Set(), minTime:"", daysActive:new Set(), movieDays:new Set(), pillsOpen:false, yearBuckets:new Set(), yearOpen:false, daysPristine:true };
 
 // Start-time filter options for the "By day" view: [value, label].
 const TIME_OPTS = [
@@ -135,12 +246,30 @@ const TIME_OPTS = [
   ["19:00", "After 7 pm"], ["20:00", "After 8 pm"], ["21:00", "After 9 pm"],
 ];
 
+// Year buckets: a collapsible pill filter (like Cinemas) grouping films by era.
+const NOW_YEAR = new Date().getFullYear();
+const YEAR_BUCKETS = [
+  { k:"new",    label:"New releases",  test:y => y >= NOW_YEAR - 1 },
+  { k:"recent", label:"21st century",  test:y => y >= 2000 && y <= NOW_YEAR - 2 },
+  { k:"old",    label:"20th century",  test:y => y < 2000 },
+];
+
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function todayStr(){ const d=new Date(); return [d.getFullYear(), String(d.getMonth()+1).padStart(2,"0"), String(d.getDate()).padStart(2,"0")].join("-"); }
 function isToday(s){ return s===todayStr(); }
 function fmtDay(iso){ const [y,m,d]=iso.split("-").map(Number); const dd=new Date(y,m-1,d); return WD[dd.getDay()]+" "+d; }
 function fmtUpdated(iso){ const [y,m,d]=iso.slice(0,10).split("-").map(Number); const dd=new Date(y,m-1,d); return WD[dd.getDay()]+", "+MO[m-1]+" "+d; }
-function metaLine(f){ return [f.director, f.year].filter(Boolean).join(" · "); }
+function metaLine(f){ return [f.director, f.year, f.country].filter(Boolean).join(" · "); }
+// Day selection is per-view: Movies keeps its own set (all days by default),
+// while Cinemas and Daily share one (today by default).
+function curDays(){ return state.view === "movie" ? state.movieDays : state.daysActive; }
+// Year filter: keep films at or below the selected year (unknown years kept).
+function yearInBuckets(y){
+  if(state.yearBuckets.size === YEAR_BUCKETS.length) return true;  // all buckets = no filter
+  const n = parseInt(y, 10);
+  if(isNaN(n)) return true;  // unknown year always shown
+  return YEAR_BUCKETS.some(b => state.yearBuckets.has(b.k) && b.test(n));
+}
 
 function filmsFor(name, date){
   const m = new Map();
@@ -148,102 +277,94 @@ function filmsFor(name, date){
     if(r.cinema !== name || r.date !== date) continue;
     const k = r["Movie title"] + "|" + r["Year"];
     let f = m.get(k);
-    if(!f){ f = {title:r["Movie title"], director:r["Director"], year:r["Year"], lb:r["Letterboxd"], poster:r["Poster"], times:[]}; m.set(k,f); }
+    if(!f){ f = {title:r["Movie title"], director:r["Director"], year:r["Year"], country:r["Country"], lb:r["Letterboxd"], poster:r["Poster"], times:[]}; m.set(k,f); }
     f.times.push(r.time);
   }
   const a = [...m.values()];
   a.forEach(f => f.times = [...new Set(f.times)].sort());
   a.sort((x,y) => (x.times[0]||"").localeCompare(y.times[0]||"") || x.title.localeCompare(y.title));
-  return a;
+  return a.filter(f => yearInBuckets(f.year));
 }
 function titleLink(title, lb){
   return lb ? `<a href="${esc(lb)}" target="_blank" rel="noopener">${esc(title)}</a>` : esc(title);
 }
 function posterImg(f){
   if(!f.poster) return "";
-  return `<img class="poster" src="${esc(f.poster)}" alt="" loading="lazy" onerror="this.remove()">`;
+  // No loading="lazy": the view's HTML is rebuilt on every filter change, and
+  // lazy-created <img>s blank for a frame before repainting cached posters
+  // (a flicker). Eager + async decode lets cached thumbnails repaint at once.
+  return `<img class="poster" src="${esc(f.poster)}" alt="" decoding="async" onerror="this.remove()">`;
 }
 
 function renderCinema(){
-  const date = data.dates[state.dayIndex];
+  const days = data.dates.filter(d => state.daysActive.has(d));
+  const multi = days.length > 1;
   let html = "";
   for(const c of data.cinemas){
     if(!state.active.has(c.name)) continue;
-    const films = filmsFor(c.name, date);
-    html += `<div class="csec"><div class="chead">
-      <span class="cname">${esc(c.name)}</span>
-      <span class="caddr">${esc(c.address)}</span></div>`;
-    if(films.length){
+    let body = "", any = false;
+    for(const date of days){
+      const films = filmsFor(c.name, date);
+      if(!films.length) continue;
+      any = true;
+      if(multi) body += `<div class="cday${isToday(date) ? " today" : ""}">${isToday(date) ? "Today" : fmtDay(date)}</div>`;
       for(const f of films){
-        html += `<div class="film">${posterImg(f)}<div class="info">
+        body += `<div class="film">${posterImg(f)}<div class="info">
           <div class="ti">${titleLink(f.title, f.lb)}</div>
           ${metaLine(f) ? `<div class="by">${esc(metaLine(f))}</div>` : ""}
           </div><div class="times">${f.times.map(t => `<span>${esc(t)}</span>`).join("")}</div></div>`;
       }
-    } else {
-      html += `<div class="empty">No screenings.</div>`;
     }
+    html += `<div class="csec"><div class="chead">
+      <span class="cname">${esc(c.name)}</span>
+      <span class="caddr">${esc(c.address)}</span></div>`;
+    html += any ? body : `<div class="empty">No screenings.</div>`;
     html += `</div>`;
   }
   return html || `<div class="empty">No cinema selected.</div>`;
 }
 
 function renderDay(){
-  const date = data.dates[state.dayIndex];
-  const rows = [];
-  for(const c of data.cinemas){
-    if(!state.active.has(c.name)) continue;
-    for(const f of filmsFor(c.name, date))
-      for(const t of f.times)
-        rows.push({time:t, title:f.title, lb:f.lb, poster:f.poster, meta:metaLine(f), cinema:c.name, color:c.color});
-  }
-  const filtered = state.minTime ? rows.filter(r => r.time >= state.minTime) : rows;
-  filtered.sort((a,b) => a.time.localeCompare(b.time) || a.title.localeCompare(b.title));
-  if(!filtered.length) return `<div class="empty">No screenings.</div>`;
-  let h = "";
-  for(const r of filtered){
-    h += `<div class="ev"><div class="t">${esc(r.time)}</div>
-      ${posterImg(r)}
-      <div class="info"><div class="ti">${titleLink(r.title, r.lb)}</div>${r.meta ? `<div class="by">${esc(r.meta)}</div>` : ""}</div>
-      <div class="cin">${esc(r.cinema)}</div></div>`;
-  }
-  return h;
-}
-
-function renderWeek(){
-  let h = `<div class="wscroll"><div class="wgrid">`;
-  for(const date of data.dates){
-    h += `<div><div class="wh${isToday(date) ? " today" : ""}">${isToday(date) ? "Today" : fmtDay(date)}</div>`;
-    const seen = new Map();
+  const days = data.dates.filter(d => state.daysActive.has(d));
+  if(!days.length) return `<div class="empty">No day selected.</div>`;
+  const multi = days.length > 1;
+  let out = "";
+  for(const date of days){
+    const rows = [];
     for(const c of data.cinemas){
       if(!state.active.has(c.name)) continue;
       for(const f of filmsFor(c.name, date))
-        if(!seen.has(f.title)) seen.set(f.title, {f, color:c.color});
+        for(const t of f.times)
+          rows.push({time:t, title:f.title, lb:f.lb, poster:f.poster, meta:metaLine(f), cinema:c.name});
     }
-    const entries = [...seen.values()].sort((a,b) => (a.f.times[0]||"").localeCompare(b.f.times[0]||""));
-    for(const {f} of entries){
-      h += `<div class="wf"><div class="ti">${titleLink(f.title, f.lb)}</div>
-        <div class="tm">${f.times.join(", ")}</div></div>`;
+    const filtered = state.minTime ? rows.filter(r => r.time >= state.minTime) : rows;
+    filtered.sort((a,b) => a.time.localeCompare(b.time) || a.title.localeCompare(b.title));
+    if(!filtered.length) continue;
+    if(multi) out += `<div class="dday${isToday(date) ? " today" : ""}">${isToday(date) ? "Today" : fmtDay(date)}</div>`;
+    for(const r of filtered){
+      out += `<div class="ev"><div class="t">${esc(r.time)}</div>
+        ${posterImg(r)}
+        <div class="info"><div class="ti">${titleLink(r.title, r.lb)}</div>${r.meta ? `<div class="by">${esc(r.meta)}</div>` : ""}</div>
+        <div class="cin">${esc(r.cinema)}</div></div>`;
     }
-    if(!entries.length) h += `<div class="empty" style="font-size:12px">—</div>`;
-    h += `</div>`;
   }
-  return h + `</div></div>`;
+  return out || `<div class="empty">No screenings.</div>`;
 }
 
 function renderMovies(){
-  // Days toggled on (in chronological order) are the equivalent of the Daily
-  // view's cinema toggles: here they filter which days each film's screenings show.
-  const days = data.dates.filter(d => state.daysActive.has(d));
+  // Days toggled on (chronological). Movies keeps its own day selection
+  // (state.movieDays), defaulting to the whole week.
+  const days = data.dates.filter(d => state.movieDays.has(d));
   // movie key -> {..., byDay: Map(date -> Map(cinema -> Set(times)))}
   const movies = new Map();
   for(const r of data.rows){
     if(!state.active.has(r.cinema)) continue;
-    if(!state.daysActive.has(r.date)) continue;
+    if(!state.movieDays.has(r.date)) continue;
     if(state.minTime && r.time < state.minTime) continue;
+    if(!yearInBuckets(r["Year"])) continue;
     const k = r["Movie title"] + "|" + r["Year"];
     let mv = movies.get(k);
-    if(!mv){ mv = {title:r["Movie title"], director:r["Director"], year:r["Year"], lb:r["Letterboxd"], poster:r["Poster"], byDay:new Map()}; movies.set(k, mv); }
+    if(!mv){ mv = {title:r["Movie title"], director:r["Director"], year:r["Year"], country:r["Country"], lb:r["Letterboxd"], poster:r["Poster"], byDay:new Map()}; movies.set(k, mv); }
     let dm = mv.byDay.get(r.date);
     if(!dm){ dm = new Map(); mv.byDay.set(r.date, dm); }
     let ts = dm.get(r.cinema);
@@ -282,36 +403,44 @@ function renderControls(){
   // the 1.5s refresh-poll would recreate the <select> and pills mid-interaction
   // (closing an open dropdown, so the time filter felt broken while refreshing).
   const sig = [state.view, data.dates.join(","), data.cinemas.map(x => x.name).join(","),
-    [...state.active].sort().join(","), state.dayIndex, state.minTime,
-    [...state.daysActive].sort().join(",")].join("|");
+    [...state.active].sort().join(","), state.minTime,
+    [...state.yearBuckets].sort().join(","), state.yearOpen,
+    [...state.daysActive].sort().join(","), [...state.movieDays].sort().join(","), state.pillsOpen].join("|");
   if(sig === _controlsSig) return;
   _controlsSig = sig;
 
+  // Cinemas and Year are collapsible pink buttons. Year sits beside Cinemas on
+  // one row while Cinemas is collapsed (its buckets expand inline there too);
+  // once Cinemas is expanded, Year drops to its own row below.
+  const allYears = state.yearBuckets.size === YEAR_BUCKETS.length;
+  const yearBtn = `<button class="pill all${allYears ? " on" : ""}" data-yall="1">Year</button>` +
+    (state.yearOpen ? YEAR_BUCKETS.map(b =>
+      `<button class="pill${state.yearBuckets.has(b.k) ? "" : " off"}" data-y="${b.k}">${esc(b.label)}</button>`).join("") : "");
+  const cinemaPills = state.pillsOpen ? data.cinemas.map(x =>
+    `<button class="pill${state.active.has(x.name) ? "" : " off"}" data-n="${esc(x.name)}">${esc(x.name)}</button>`).join("") : "";
   let html = `<div class="pills">` +
-    `<button class="pill all${allActive ? " on" : ""}" data-all="1">All</button>` +
-    data.cinemas.map(x =>
-      `<button class="pill${state.active.has(x.name) ? "" : " off"}" data-n="${esc(x.name)}">${esc(x.name)}</button>`).join("") + `</div>`;
-  if(state.view === "cinema" || state.view === "day"){
-    // Single-day selector: the Cinemas and Daily views show one day at a time.
-    html += `<div class="days">` + data.dates.map((d,i) =>
-      `<button class="day${i === state.dayIndex ? " active" : ""}" data-i="${i}">${isToday(d) ? "Today" : fmtDay(d)}</button>`).join("") + `</div>`;
-  }
-  if(state.view === "movie"){
-    // Day on/off toggles: the Movies view's answer to the Daily view's cinema pills.
-    const allDays = state.daysActive.size === data.dates.length;
-    html += `<div class="pills">` +
-      `<button class="pill all${allDays ? " on" : ""}" data-dall="1">All</button>` +
-      data.dates.map(d =>
-        `<button class="pill${state.daysActive.has(d) ? "" : " off"}" data-d="${esc(d)}">${isToday(d) ? "Today" : fmtDay(d)}</button>`).join("") + `</div>`;
-  }
-  if(state.view === "day" || state.view === "movie"){
-    html += `<div class="tf"><select id="minTime" class="sel" aria-label="Filter by start time">` +
-      TIME_OPTS.map(([v,l]) => `<option value="${v}"${v === state.minTime ? " selected" : ""}>${l}</option>`).join("") +
-      `</select></div>`;
+    `<button class="pill all${allActive ? " on" : ""}" data-all="1">Cinemas</button>` +
+    cinemaPills + (state.pillsOpen ? "" : yearBtn) + `</div>`;
+  if(state.pillsOpen) html += `<div class="pills">` + yearBtn + `</div>`;
+  // One multi-select day row for Cinemas, Daily and Movies; Weekly always shows
+  // the whole week. The "Any time" filter rides on the right of the same row.
+  if(state.view !== "week"){
+    const dayBtns = data.dates.map(d =>
+      `<button class="day${curDays().has(d) ? " active" : ""}" data-d="${esc(d)}">${isToday(d) ? "Today" : fmtDay(d)}</button>`).join("");
+    const timeSel = (state.view === "day" || state.view === "movie")
+      ? `<select id="minTime" class="sel" aria-label="Filter by start time">` +
+        TIME_OPTS.map(([v,l]) => `<option value="${v}"${v === state.minTime ? " selected" : ""}>${l}</option>`).join("") + `</select>`
+      : "";
+    html += `<div class="dayrow"><div class="days">${dayBtns}</div>${timeSel}</div>`;
   }
   c.innerHTML = html;
   const allBtn = c.querySelector("[data-all]");
-  if(allBtn) allBtn.onclick = () => { state.active = new Set(data.cinemas.map(x => x.name)); renderAll(); };
+  if(allBtn) allBtn.onclick = () => {
+    state.pillsOpen = !state.pillsOpen;
+    // Collapsing tucks the list away and returns to "all cinemas".
+    if(!state.pillsOpen) state.active = new Set(data.cinemas.map(x => x.name));
+    renderAll();
+  };
   c.querySelectorAll(".pill[data-n]").forEach(b => b.onclick = () => {
     const n = b.dataset.n;
     const total = data.cinemas.length;
@@ -328,27 +457,41 @@ function renderControls(){
     }
     renderAll();
   });
-  c.querySelectorAll(".day").forEach(b => b.onclick = () => { state.dayIndex = +b.dataset.i; renderAll(); });
-  const allDaysBtn = c.querySelector("[data-dall]");
-  if(allDaysBtn) allDaysBtn.onclick = () => { state.daysActive = new Set(data.dates); renderAll(); };
-  c.querySelectorAll(".pill[data-d]").forEach(b => b.onclick = () => {
-    const d = b.dataset.d;
-    const total = data.dates.length;
-    if(state.daysActive.size === total){
-      // All active: clicking one isolates it (show only that day).
+  // Days multi-select. The first pick from the default (untouched) Daily/Cinemas
+  // selection replaces it, so clicking another date drops Today instead of adding.
+  c.querySelectorAll(".day").forEach(b => b.onclick = () => {
+    const d = b.dataset.d, s = curDays(), isDaily = s === state.daysActive;
+    if(isDaily && state.daysPristine){
       state.daysActive = new Set([d]);
-    } else if(state.daysActive.size === 1 && state.daysActive.has(d)){
-      // Only this one active: clicking it reactivates all the others.
-      state.daysActive = new Set(data.dates.filter(x => x !== d));
-    } else if(state.daysActive.has(d)){
-      state.daysActive.delete(d);
+      state.daysPristine = false;
     } else {
-      state.daysActive.add(d);
+      if(s.has(d)) s.delete(d); else s.add(d);
+      if(isDaily) state.daysPristine = false;
     }
     renderAll();
   });
   const sel = c.querySelector("#minTime");
   if(sel) sel.onchange = () => { state.minTime = sel.value; renderAll(); };
+  const yallBtn = c.querySelector("[data-yall]");
+  if(yallBtn) yallBtn.onclick = () => {
+    state.yearOpen = !state.yearOpen;
+    // Collapsing tucks the buckets away and returns to "all years".
+    if(!state.yearOpen) state.yearBuckets = new Set(YEAR_BUCKETS.map(b => b.k));
+    renderAll();
+  };
+  c.querySelectorAll(".pill[data-y]").forEach(b => b.onclick = () => {
+    const k = b.dataset.y, total = YEAR_BUCKETS.length;
+    if(state.yearBuckets.size === total){
+      state.yearBuckets = new Set([k]);
+    } else if(state.yearBuckets.size === 1 && state.yearBuckets.has(k)){
+      state.yearBuckets = new Set(YEAR_BUCKETS.map(x => x.k).filter(x => x !== k));
+    } else if(state.yearBuckets.has(k)){
+      state.yearBuckets.delete(k);
+    } else {
+      state.yearBuckets.add(k);
+    }
+    renderAll();
+  });
 }
 
 function renderStatus(){
@@ -366,8 +509,7 @@ function renderAll(){
   renderStatus();
   document.getElementById("view").innerHTML =
     state.view === "cinema" ? renderCinema() :
-    state.view === "day"    ? renderDay()    :
-    state.view === "movie"  ? renderMovies() : renderWeek();
+    state.view === "movie"  ? renderMovies() : renderDay();
 }
 
 async function load(){
@@ -381,20 +523,23 @@ async function load(){
     setTimeout(load, 1500);
     return;
   }
+  // Default day selection: today if it's in the window, else the first day.
+  const defaultDays = () => new Set([data.dates.includes(todayStr()) ? todayStr() : data.dates[0]]);
   if(!inited){
     state.active = new Set(data.cinemas.map(c => c.name));
-    state.daysActive = new Set(data.dates);
-    const i = data.dates.indexOf(todayStr());
-    state.dayIndex = i >= 0 ? i : 0;
+    state.daysActive = defaultDays();
+    state.daysPristine = true;
+    state.movieDays = new Set(data.dates);
+    state.yearBuckets = new Set(YEAR_BUCKETS.map(b => b.k));
     inited = true;
-  } else if(state.dayIndex >= data.dates.length){
-    state.dayIndex = 0;
   }
-  // Keep the Movies view's day toggles in sync when the window of dates shifts
-  // (e.g. the daily refresh drops yesterday and adds a new day).
+  // Keep day toggles in sync when the window of dates shifts (e.g. the daily
+  // refresh drops yesterday and adds a new day).
   const valid = new Set(data.dates);
   for(const d of [...state.daysActive]) if(!valid.has(d)) state.daysActive.delete(d);
-  if(!state.daysActive.size) state.daysActive = new Set(data.dates);
+  if(!state.daysActive.size) state.daysActive = defaultDays();
+  for(const d of [...state.movieDays]) if(!valid.has(d)) state.movieDays.delete(d);
+  if(!state.movieDays.size) state.movieDays = new Set(data.dates);
   // Only re-render when the fetched data actually changed. During a refresh the
   // same cached rows are served every 1.5s; re-rendering them each time made the
   // view flicker. (User interactions render immediately via their own handlers.)
@@ -413,6 +558,20 @@ document.getElementById("tabs").onclick = (e) => {
   state.view = t.dataset.view;
   renderAll();
 };
+
+// --- Light switch: toggles between Riso (light) and Riso Noir (dark) ---
+function applySkin(s){
+  if(s !== "riso" && s !== "risonoir") s = "riso";
+  document.body.dataset.skin = s;
+  const sw = document.getElementById("lswitch");
+  if(sw) sw.setAttribute("aria-pressed", s === "risonoir" ? "true" : "false");
+  try { localStorage.setItem("skin", s); } catch(e) {}
+}
+document.getElementById("lswitch").onclick = () =>
+  applySkin(document.body.dataset.skin === "risonoir" ? "riso" : "risonoir");
+let _skin = "riso";
+try { _skin = localStorage.getItem("skin") || "riso"; } catch(e) {}
+applySkin(_skin);
 
 load();
 </script>
