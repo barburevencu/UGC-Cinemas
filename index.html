@@ -48,8 +48,7 @@
 
   /* Light switch — a small, quiet ink slider tucked beside the wordmark; the
      knob slides pink (left = Riso) to blue (right = Riso Noir). */
-  .brand { display:flex; align-items:center; gap:9px; }
-  .lswitch { flex:0 0 auto; background:none; border:0; padding:0; cursor:pointer; line-height:0; }
+  .lswitch { flex:0 0 auto; align-self:center; background:none; border:0; padding:0; cursor:pointer; line-height:0; }
   .lswitch .trk { display:block; width:30px; height:16px; border:1.5px solid var(--faint);
                   border-radius:999px; padding:1.5px; }
   .lswitch .knob { display:block; width:10px; height:10px; border-radius:999px; background:#ff2e8a;
@@ -86,7 +85,13 @@
 
   .film, .ev { display:flex; gap:16px; align-items:flex-start; padding:11px 0; border-bottom:1px solid var(--line); }
   .poster { flex:0 0 auto; width:46px; height:69px; object-fit:cover; border-radius:4px;
-            background:var(--line); box-shadow:0 1px 3px rgba(0,0,0,.14); }
+            background:var(--line); box-shadow:0 1px 3px rgba(0,0,0,.14); cursor:zoom-in; }
+
+  /* Poster lightbox: click a thumbnail to see it full size. */
+  #lightbox { position:fixed; inset:0; z-index:100; display:none; align-items:center; justify-content:center;
+              background:rgba(10,8,12,.82); padding:24px; cursor:zoom-out; }
+  #lightbox.open { display:flex; }
+  #lightbox img { max-width:92vw; max-height:88vh; border-radius:6px; box-shadow:0 16px 50px rgba(0,0,0,.55); }
   .ev .poster { width:34px; height:51px; }
   .info { flex:1; min-width:0; padding-top:1px; }
   .ti { font-size:15px; }
@@ -127,6 +132,7 @@
   @media (max-width:560px) {
     .bar { flex-wrap:wrap; gap:12px 16px; }
     nav { margin-left:0; order:2; width:100%; flex-wrap:wrap; gap:4px 16px; }
+    .lswitch { margin-left:auto; }
   }
 
   /* ============================================================
@@ -223,17 +229,15 @@
 
 <header><div class="wrap">
   <div class="bar">
-    <div class="brand">
-      <span class="logo">Paris Cinemas</span>
-      <button class="lswitch" id="lswitch" aria-label="Switch between light and dark" aria-pressed="false">
-        <span class="trk"><span class="knob"></span></span>
-      </button>
-    </div>
+    <span class="logo">Paris Cinemas</span>
     <nav id="tabs">
       <button class="tab active" data-view="day">Daily</button>
       <button class="tab" data-view="movie">Movies</button>
       <button class="tab" data-view="cinema">Cinemas</button>
     </nav>
+    <button class="lswitch" id="lswitch" aria-label="Switch between light and dark" aria-pressed="false">
+      <span class="trk"><span class="knob"></span></span>
+    </button>
   </div>
 </div></header>
 
@@ -244,6 +248,8 @@
 <main><div class="wrap" id="view"><div class="note">Loading…</div></div></main>
 
 <footer><div class="wrap"><div class="status" id="status"></div></div></footer>
+
+<div id="lightbox" aria-hidden="true"><img alt=""></div>
 
 <script>
 const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -584,6 +590,17 @@ document.getElementById("lswitch").onclick = () =>
 let _skin = "riso";
 try { _skin = localStorage.getItem("skin") || "riso"; } catch(e) {}
 applySkin(_skin);
+
+// --- Poster lightbox: click a poster to view it full size. ---
+const _lb = document.getElementById("lightbox"), _lbImg = _lb.querySelector("img");
+function closeLightbox(){ _lb.classList.remove("open"); _lb.setAttribute("aria-hidden", "true"); _lbImg.removeAttribute("src"); }
+document.getElementById("view").addEventListener("click", (e) => {
+  const img = e.target.closest(".poster"); if(!img) return;
+  _lbImg.src = img.currentSrc || img.src;
+  _lb.classList.add("open"); _lb.setAttribute("aria-hidden", "false");
+});
+_lb.addEventListener("click", closeLightbox);
+document.addEventListener("keydown", (e) => { if(e.key === "Escape") closeLightbox(); });
 
 load();
 </script>
