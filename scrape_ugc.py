@@ -47,6 +47,9 @@ CINEMAS = [
 ]
 
 ENDPOINT = "https://www.allocine.fr/_/showtimes/theater-{salle}/d-{date}/"
+# Page 2+ of a day's results use a trailing "p-{page}/" segment. Big cinemas
+# (e.g. MK2 Bibliothèque) run more films than fit on one page; see fetch_all.
+PAGED_ENDPOINT = "https://www.allocine.fr/_/showtimes/theater-{salle}/d-{date}/p-{page}/"
 
 # Number of days to scrape, starting from the given (or today's) date.
 DAYS = 7
@@ -61,9 +64,12 @@ HEADERS = {
 }
 
 
-def fetch(salle, date_str):
-    """Fetch the showtimes JSON for one cinema on the given YYYY-MM-DD date."""
-    url = ENDPOINT.format(salle=salle, date=date_str)
+def fetch(salle, date_str, page=1):
+    """Fetch one page of the showtimes JSON for a cinema on a YYYY-MM-DD date."""
+    if page > 1:
+        url = PAGED_ENDPOINT.format(salle=salle, date=date_str, page=page)
+    else:
+        url = ENDPOINT.format(salle=salle, date=date_str)
     req = urllib.request.Request(url, headers=HEADERS)
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
@@ -73,6 +79,28 @@ def fetch(salle, date_str):
     except urllib.error.URLError as e:
         print(f"  ! Network error for {salle}: {e.reason}", file=sys.stderr)
     return None
+
+
+def fetch_all(salle, date_str):
+    """Fetch every page of showtimes for a cinema, merging results into one dict.
+
+    AlloCiné paginates at ~15 films per page. Repertory houses fit on one page,
+    but a multiplex can span several, so follow pagination.totalPages and append
+    each page's results. Returns a dict shaped like a single-page response (with
+    a combined "results" list), or None if even the first page failed.
+    """
+    first = fetch(salle, date_str, page=1)
+    if first is None:
+        return None
+    results = list(first.get("results") or [])
+    total_pages = ((first.get("pagination") or {}).get("totalPages")) or 1
+    for page in range(2, total_pages + 1):
+        data = fetch(salle, date_str, page=page)
+        if data is None:
+            continue
+        results.extend(data.get("results") or [])
+    first["results"] = results
+    return first
 
 
 def strip_disambiguation(name):
@@ -434,7 +462,7 @@ def scrape(start, tmdb_key=None, days=DAYS, log=print, cache=None):
     for date_str in dates:
         log(f"{date_str}:")
         for salle, name in CINEMAS:
-            data = fetch(salle, date_str)
+            data = fetch_all(salle, date_str)
             if data is None:
                 continue
             rows = collect_rows(data, name, date_str)
