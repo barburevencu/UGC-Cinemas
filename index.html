@@ -4,20 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Paris Cinemas</title>
-<meta name="description" content="Repertory cinema showtimes across Paris — 17 cinemas, every day of the week.">
+<meta name="description" content="Movie showtimes across Paris, every day of the week.">
 <meta property="og:title" content="Paris Cinemas">
-<meta property="og:description" content="Repertory cinema showtimes across Paris — 17 cinemas, every day of the week.">
+<meta property="og:description" content="Movie showtimes across Paris, every day of the week.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://barburevencu.github.io/UGC-Cinemas/">
-<meta property="og:image" content="https://barburevencu.github.io/UGC-Cinemas/og.png">
+<meta property="og:url" content="https://barburevencu.github.io/Paris-cinemas/">
+<meta property="og:image" content="https://barburevencu.github.io/Paris-cinemas/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Paris Cinemas">
-<meta name="twitter:description" content="Repertory cinema showtimes across Paris — 17 cinemas, every day of the week.">
-<meta name="twitter:image" content="https://barburevencu.github.io/UGC-Cinemas/og.png">
-<link rel="icon" type="image/svg+xml" href="favicon.svg">
-<link rel="apple-touch-icon" href="favicon.svg">
+<meta name="twitter:description" content="Movie showtimes across Paris, every day of the week.">
+<meta name="twitter:image" content="https://barburevencu.github.io/Paris-cinemas/og.png">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=2">
+<link rel="apple-touch-icon" href="favicon.svg?v=2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@500;800;900&family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap">
@@ -45,16 +45,6 @@
   .tab { cursor:pointer; color:var(--muted); padding-bottom:10px; border:0; border-bottom:2px solid transparent; margin-bottom:-1px; background:none; font:inherit; font-size:13.5px; }
   .tab:hover { color:var(--fg); }
   .tab.active { color:var(--fg); border-bottom-color:var(--accent); }
-
-  /* Light switch — a small, quiet ink slider tucked beside the wordmark; the
-     knob slides pink (left = Riso) to blue (right = Riso Noir). */
-  .lswitch { flex:0 0 auto; align-self:center; background:none; border:0; padding:0; cursor:pointer; line-height:0; }
-  .lswitch .trk { display:block; width:30px; height:16px; border:1.5px solid var(--faint);
-                  border-radius:999px; padding:1.5px; }
-  .lswitch .knob { display:block; width:10px; height:10px; border-radius:999px; background:#ff2e8a;
-                   transition:transform .18s, background .18s; }
-  body[data-skin="risonoir"] .lswitch .knob { transform:translateX(14px); background:#6a97ff; }
-  .lswitch:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:6px; }
 
   .controls { display:flex; flex-direction:column; gap:13px; padding:20px 0 0; }
   .pills { display:flex; flex-wrap:wrap; gap:7px 18px; }
@@ -85,11 +75,13 @@
 
   .film, .ev { display:flex; gap:16px; align-items:flex-start; padding:11px 0; border-bottom:1px solid var(--line); }
   .poster { flex:0 0 auto; width:46px; height:69px; object-fit:cover; border-radius:4px;
-            background:var(--line); box-shadow:0 1px 3px rgba(0,0,0,.14); cursor:zoom-in; }
+            background:var(--line); box-shadow:0 1px 3px rgba(0,0,0,.14); cursor:pointer;
+            transition:transform .12s ease, box-shadow .12s ease; }
+  .poster:hover { transform:scale(1.07); box-shadow:0 4px 12px rgba(0,0,0,.35); }
 
   /* Poster lightbox: click a thumbnail to see it full size. */
   #lightbox { position:fixed; inset:0; z-index:100; display:none; align-items:center; justify-content:center;
-              background:rgba(10,8,12,.82); padding:24px; cursor:zoom-out; }
+              background:rgba(10,8,12,.82); padding:24px; cursor:pointer; }
   #lightbox.open { display:flex; }
   #lightbox img { max-width:92vw; max-height:88vh; border-radius:6px; box-shadow:0 16px 50px rgba(0,0,0,.55); }
   .ev .poster { width:34px; height:51px; }
@@ -132,7 +124,6 @@
   @media (max-width:560px) {
     .bar { flex-wrap:wrap; gap:12px 16px; }
     nav { margin-left:0; order:2; width:100%; flex-wrap:wrap; gap:4px 16px; }
-    .lswitch { margin-left:auto; }
   }
 
   /* ============================================================
@@ -235,9 +226,6 @@
       <button class="tab" data-view="movie">Movies</button>
       <button class="tab" data-view="cinema">Cinemas</button>
     </nav>
-    <button class="lswitch" id="lswitch" aria-label="Switch between light and dark" aria-pressed="false">
-      <span class="trk"><span class="knob"></span></span>
-    </button>
   </div>
 </div></header>
 
@@ -577,19 +565,30 @@ document.getElementById("tabs").onclick = (e) => {
   renderAll();
 };
 
-// --- Light switch: toggles between Riso (light) and Riso Noir (dark) ---
-function applySkin(s){
-  if(s !== "riso" && s !== "risonoir") s = "riso";
-  document.body.dataset.skin = s;
-  const sw = document.getElementById("lswitch");
-  if(sw) sw.setAttribute("aria-pressed", s === "risonoir" ? "true" : "false");
-  try { localStorage.setItem("skin", s); } catch(e) {}
+// --- Theme follows the sun in Paris: Riso by day, Riso Noir after sunset. ---
+function parisIsDaylight(){
+  // Sunrise equation (NOAA): today's sunrise/sunset at Paris as UTC instants.
+  const lat = 48.8566, lng = 2.3522, rad = Math.PI / 180, now = Date.now();
+  const J = now / 86400000 + 2440587.5;                 // Julian date
+  const n = Math.round(J - 2451545.0 + 0.0008);
+  const Js = n + lng / 360;                             // mean solar time
+  const M = (357.5291 + 0.98560028 * Js) % 360;
+  const C = 1.9148 * Math.sin(M * rad) + 0.0200 * Math.sin(2 * M * rad) + 0.0003 * Math.sin(3 * M * rad);
+  const lam = (M + C + 180 + 102.9372) % 360;
+  const Jtransit = 2451545.0 + Js + 0.0053 * Math.sin(M * rad) - 0.0069 * Math.sin(2 * lam * rad);
+  const decl = Math.asin(Math.sin(lam * rad) * Math.sin(23.44 * rad));
+  const cosH = (Math.sin(-0.833 * rad) - Math.sin(lat * rad) * Math.sin(decl)) /
+               (Math.cos(lat * rad) * Math.cos(decl));
+  if(cosH <= -1) return true;    // sun never sets
+  if(cosH >= 1) return false;    // sun never rises
+  const H = Math.acos(cosH) / rad;
+  const toMs = j => (j - 2440587.5) * 86400000;
+  const sunrise = toMs(Jtransit - H / 360), sunset = toMs(Jtransit + H / 360);
+  return now >= sunrise && now < sunset;
 }
-document.getElementById("lswitch").onclick = () =>
-  applySkin(document.body.dataset.skin === "risonoir" ? "riso" : "risonoir");
-let _skin = "riso";
-try { _skin = localStorage.getItem("skin") || "riso"; } catch(e) {}
-applySkin(_skin);
+function applyAutoSkin(){ document.body.dataset.skin = parisIsDaylight() ? "riso" : "risonoir"; }
+applyAutoSkin();
+setInterval(applyAutoSkin, 300000);   // re-check every 5 min so it flips at sunset
 
 // --- Poster lightbox: click a poster to view it full size. ---
 const _lb = document.getElementById("lightbox"), _lbImg = _lb.querySelector("img");
