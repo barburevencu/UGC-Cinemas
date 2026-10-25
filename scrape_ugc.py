@@ -160,12 +160,31 @@ def iter_showtimes(result):
     return sorted(set(times))
 
 
+# Non-film entries to drop entirely — not real screenings. Keyed by
+# (cinema, title casefolded); matched against either the original or French
+# title. The Grand Rex lists its permanent in-house attractions (the "Rex
+# Studios" guided tour) alongside its actual showtimes.
+EXCLUDE = {
+    ("Le Grand Rex", "rex studios"),
+    ("Le Grand Rex", "sauvez le cinéma !"),
+    ("Le Grand Rex", "visite guidée"),  # "Guided Tour" — the guided tour, not a film
+}
+
+
+def is_excluded(cinema_name, *titles):
+    """True if any of `titles` marks this result as a non-film to skip."""
+    keys = {(cinema_name, t.strip().casefold()) for t in titles if t and t.strip()}
+    return bool(keys & EXCLUDE)
+
+
 def collect_rows(data, cinema_name, date_str):
     rows = []
     for result in (data.get("results") or []):
         movie = result.get("movie") or {}
         original = movie.get("originalTitle") or movie.get("title") or ""
         french = movie.get("title") or ""
+        if is_excluded(cinema_name, original, french):
+            continue
         director = get_director(movie)
         year = get_year(movie)
         for time in iter_showtimes(result):
