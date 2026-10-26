@@ -153,9 +153,19 @@ def get_year(movie):
 # Short country labels for display.
 COUNTRY_ABBR = {"United Kingdom": "UK"}
 
+# Fixes for wrong AlloCiné nationalities. Keyed by (original title casefolded,
+# production year as a string).
+COUNTRY_OVERRIDES = {
+    ("la belle et la bête", "1946"): "France",  # AlloCiné lists "Luxembourg, France"
+}
+
 
 def get_country(movie):
     """First production country, with UK as a short label for display."""
+    title = (movie.get("originalTitle") or movie.get("title") or "").strip().casefold()
+    override = COUNTRY_OVERRIDES.get((title, str(get_year(movie))))
+    if override:
+        return override
     for c in movie.get("countries") or []:
         name = c.get("name") or c.get("localizedName")
         if name:
