@@ -465,9 +465,15 @@ function renderControls(){
   });
   // Days multi-select. The first pick from the default (untouched) Daily/Cinemas
   // selection replaces it, so clicking another date drops Today instead of adding.
+  // Movies: from the full week, a click isolates that day; deselecting the
+  // last remaining day goes back to the full week.
   c.querySelectorAll(".day").forEach(b => b.onclick = () => {
     const d = b.dataset.d, s = curDays(), isDaily = s === state.daysActive;
-    if(isDaily && state.daysPristine){
+    if(s === state.movieDays){
+      if(s.size === data.dates.length) state.movieDays = new Set([d]);
+      else if(s.has(d)){ s.delete(d); if(!s.size) state.movieDays = new Set(data.dates); }
+      else s.add(d);
+    } else if(isDaily && state.daysPristine){
       state.daysActive = new Set([d]);
       state.daysPristine = false;
     } else {
