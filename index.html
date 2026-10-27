@@ -59,7 +59,6 @@
   .day:hover { color:var(--fg); }
   .day.active { color:var(--accent); font-weight:600; }
   .sel { margin-left:auto; }
-  .sel + .sel { margin-left:0; }
   .dday { font-size:12px; font-weight:600; color:var(--muted); padding:18px 0 7px; border-bottom:1px solid var(--line); }
   .dday.today { color:var(--accent); }
   .cday { font-size:12px; font-weight:600; color:var(--muted); padding:13px 0 3px; }
@@ -123,14 +122,13 @@
   /* With a mouse/trackpad the scrollbar overlays the right edge while
      scrolling; sit clear of it. Touch keeps the index at the edge. */
   @media (pointer:fine) { #mindex { right:16px; } }
-  #mindex span { display:block; padding:0 4px; font-size:var(--ifs,10.5px); line-height:1.32;
+  #mindex span { display:block; padding:0 4px; font-size:var(--ifs,10.5px); line-height:1.65;
                  font-weight:600; color:var(--accent); font-variant-numeric:tabular-nums; }
   #mindex span.no { color:var(--faint); }
-  #mibubble { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:30;
-              min-width:84px; padding:14px 18px; border-radius:12px; text-align:center;
-              background:var(--fg); color:var(--bg); font-size:34px; font-weight:700;
-              font-variant-numeric:tabular-nums; pointer-events:none; opacity:0; transition:opacity .15s; }
-  #mibubble.on { opacity:.88; }
+  /* Four-digit decades read denser than single letters at the same pitch. */
+  #mindex.dec span { line-height:2.3; }
+  #mindex .isort { margin-bottom:6px; padding:2px 4px; border:0; border-radius:3px; cursor:pointer;
+                   background:var(--accent); color:#fff; font:inherit; font-size:10px; font-weight:700; line-height:1.3; white-space:nowrap; }
   .msec { scroll-margin-top:var(--hdr,60px); }
   @media (max-width:560px) { .wrap.has-idx { padding-right:30px; } }
 
@@ -260,7 +258,6 @@
 
 <div id="lightbox" aria-hidden="true"><img alt=""></div>
 <div id="mindex" role="navigation" aria-label="Jump to"></div>
-<div id="mibubble" aria-hidden="true"></div>
 
 <script>
 const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -268,10 +265,10 @@ const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","D
 let data = null, inited = false, _dataSig = null;
 const state = { view:"day", active:new Set(), minTime:"", daysActive:new Set(), movieDays:new Set(), pillsOpen:false, yearBuckets:new Set(), yearOpen:false, daysPristine:true, movieSort:"title" };
 
-// Movies view sort options: [value, label].
-const SORT_OPTS = [["title", "A–Z"], ["old", "Oldest first"], ["new", "Newest first"]];
+// Movies view sort cycle, toggled from the top of the side index: [value, short label, full label].
+const SORT_OPTS = [["title", "A–Z", "A–Z"], ["old", "Old", "Oldest first"], ["new", "New", "Newest first"]];
 
-// Start-time filter options for the "By day" view: [value, label].
+// Start-time filter options (Daily, Movies and Cinemas): [value, label].
 const TIME_OPTS = [
   ["", "Any time"], ["12:00", "After 12 pm"], ["14:00", "After 2 pm"],
   ["16:00", "After 4 pm"], ["17:00", "After 5 pm"], ["18:00", "After 6 pm"],
@@ -307,6 +304,7 @@ function filmsFor(name, date){
   const m = new Map();
   for(const r of data.rows){
     if(r.cinema !== name || r.date !== date) continue;
+    if(state.minTime && r.time < state.minTime) continue;
     const k = r["Movie title"] + "|" + r["Year"];
     let f = m.get(k);
     if(!f){ f = {title:r["Movie title"], director:r["Director"], year:r["Year"], country:r["Country"], lb:r["Letterboxd"], poster:r["Poster"], times:[]}; m.set(k,f); }
@@ -467,20 +465,24 @@ function renderIndex(){
   ix.classList.toggle("on", on);
   document.getElementById("view").classList.toggle("has-idx", on);
   if(!on){ ix.innerHTML = ""; return; }
-  const sig = _movieIndex.map(x => x.k + (x.has ? "+" : "")).join(",");
+  const sig = state.movieSort + ":" + _movieIndex.map(x => x.k + (x.has ? "+" : "")).join(",");
   if(ix.dataset.sig === sig) return;
   ix.dataset.sig = sig;
   // Shrink labels so the whole strip fits short viewports.
-  ix.style.setProperty("--ifs", Math.min(10.5, (innerHeight - 140) / _movieIndex.length / 1.32) + "px");
-  ix.innerHTML = _movieIndex.map(x => {
+  const dec = state.movieSort !== "title";
+  ix.classList.toggle("dec", dec);
+  ix.style.setProperty("--ifs", Math.min(10.5, (innerHeight - 170) / _movieIndex.length / (dec ? 2.3 : 1.65)) + "px");
+  const so = SORT_OPTS.find(o => o[0] === state.movieSort);
+  ix.innerHTML = `<button class="isort" title="Sorted ${so[2]}, tap to change" aria-label="Sorted ${so[2]}, tap to change">${so[1]}</button>` +
+    _movieIndex.map(x => {
     return `<span data-k="${esc(x.k)}"${x.has ? "" : ` class="no"`}>${esc(x.k)}</span>`;
   }).join("");
 }
 (() => {
-  const ix = document.getElementById("mindex"), bub = document.getElementById("mibubble");
-  let active = false, last = null, hideT = null;
+  const ix = document.getElementById("mindex");
+  let active = false, last = null;
   const jump = (y) => {
-    const spans = [...ix.children];
+    const spans = [...ix.querySelectorAll("span")];
     if(!spans.length) return;
     // Pick the label under the pointer's height (clamped to the strip).
     let i = spans.findIndex(sp => y < sp.getBoundingClientRect().bottom);
@@ -490,9 +492,6 @@ function renderIndex(){
     while(j < _movieIndex.length && !_movieIndex[j].has) j++;
     if(j >= _movieIndex.length){ j = i; while(j >= 0 && !_movieIndex[j].has) j--; }
     if(j < 0) return;
-    const k = _movieIndex[i].k;
-    bub.textContent = /^\d{4}$/.test(k) ? k + "s" : k;
-    bub.classList.add("on");
     const tk = _movieIndex[j].k;
     if(tk === last) return;
     last = tk;
@@ -503,13 +502,21 @@ function renderIndex(){
   };
   const end = () => {
     active = false; last = null;
-    clearTimeout(hideT); hideT = setTimeout(() => bub.classList.remove("on"), 350);
   };
   ix.addEventListener("pointerdown", e => {
-    active = true; try { ix.setPointerCapture(e.pointerId); } catch(_){} clearTimeout(hideT); jump(e.clientY); e.preventDefault();
+    if(e.target.closest(".isort")) return;
+    active = true; try { ix.setPointerCapture(e.pointerId); } catch(_){} jump(e.clientY); e.preventDefault();
   });
   ix.addEventListener("pointermove", e => { if(active) jump(e.clientY); });
   ix.addEventListener("pointerup", end);
+  // Toggle cycles the sort: A–Z → oldest → newest; land at the top of the new order.
+  ix.addEventListener("click", e => {
+    if(!e.target.closest(".isort")) return;
+    const i = SORT_OPTS.findIndex(o => o[0] === state.movieSort);
+    state.movieSort = SORT_OPTS[(i + 1) % SORT_OPTS.length][0];
+    renderAll();
+    scrollTo(0, 0);
+  });
   ix.addEventListener("pointercancel", end);
   addEventListener("resize", () => { document.getElementById("mindex").dataset.sig = ""; if(data) renderIndex(); });
 })();
@@ -524,8 +531,7 @@ function renderControls(){
   const sig = [state.view, data.dates.join(","), data.cinemas.map(x => x.name).join(","),
     [...state.active].sort().join(","), state.minTime,
     [...state.yearBuckets].sort().join(","), state.yearOpen,
-    [...state.daysActive].sort().join(","), [...state.movieDays].sort().join(","), state.pillsOpen,
-    state.movieSort].join("|");
+    [...state.daysActive].sort().join(","), [...state.movieDays].sort().join(","), state.pillsOpen].join("|");
   if(sig === _controlsSig) return;
   _controlsSig = sig;
 
@@ -547,15 +553,11 @@ function renderControls(){
   if(state.view !== "week"){
     const dayBtns = data.dates.map(d =>
       `<button class="day${curDays().has(d) ? " active" : ""}" data-d="${esc(d)}">${isToday(d) ? "Today" : fmtDay(d)}</button>`).join("");
-    const timeSel = (state.view === "day" || state.view === "movie")
+    const timeSel = (state.view === "day" || state.view === "movie" || state.view === "cinema")
       ? `<select id="minTime" class="sel" aria-label="Filter by start time">` +
         TIME_OPTS.map(([v,l]) => `<option value="${v}"${v === state.minTime ? " selected" : ""}>${l}</option>`).join("") + `</select>`
       : "";
-    const sortSel = state.view === "movie"
-      ? `<select id="msort" class="sel" aria-label="Sort films">` +
-        SORT_OPTS.map(([v,l]) => `<option value="${v}"${v === state.movieSort ? " selected" : ""}>${l}</option>`).join("") + `</select>`
-      : "";
-    html += `<div class="dayrow"><div class="days">${dayBtns}</div>${sortSel}${timeSel}</div>`;
+    html += `<div class="dayrow"><div class="days">${dayBtns}</div>${timeSel}</div>`;
   }
   c.innerHTML = html;
   const allBtn = c.querySelector("[data-all]");
@@ -602,8 +604,6 @@ function renderControls(){
   });
   const sel = c.querySelector("#minTime");
   if(sel) sel.onchange = () => { state.minTime = sel.value; renderAll(); };
-  const srt = c.querySelector("#msort");
-  if(srt) srt.onchange = () => { state.movieSort = srt.value; renderAll(); };
   const yallBtn = c.querySelector("[data-yall]");
   if(yallBtn) yallBtn.onclick = () => {
     state.yearOpen = !state.yearOpen;
