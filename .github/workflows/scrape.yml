@@ -4,7 +4,7 @@ name: Scrape and publish
 
 on:
   schedule:
-    - cron: "0 4 * * *"   # 04:00 UTC = 05:00/06:00 in Paris
+    - cron: "0 23 * * *"  # 23:00 UTC = midnight in Paris in winter, 01:00 in summer
   workflow_dispatch:
   push:
     branches: [main]
