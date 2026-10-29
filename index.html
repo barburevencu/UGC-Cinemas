@@ -24,11 +24,11 @@
 <style>
   :root {
     --bg:#ffffff; --fg:#1c1c1e; --muted:#8a8a8e; --faint:#c4c4c8;
-    --line:#ececec; --accent:#c2705a; --maxw:760px;
+    --line:#ececec; --accent:#c2705a; --accent-text:#c2705a; --maxw:760px;
   }
   @media (prefers-color-scheme: dark) {
     :root { --bg:#101012; --fg:#ececee; --muted:#86868c; --faint:#48484e;
-            --line:#222225; --accent:#e0a07a; }
+            --line:#222225; --accent:#e0a07a; --accent-text:#e0a07a; }
   }
   * { box-sizing:border-box; margin:0; padding:0; }
   html { -webkit-font-smoothing:antialiased; }
@@ -39,43 +39,43 @@
   a { color:inherit; }
 
   header { position:sticky; top:0; z-index:10; background:var(--bg); border-bottom:1px solid var(--line); }
-  .bar { display:flex; align-items:baseline; gap:18px; padding:16px 0 0; }
+  .bar { display:flex; align-items:baseline; gap:16px; padding:16px 0 0; }
   .logo { font-size:17px; font-weight:600; letter-spacing:-.01em; color:inherit; text-decoration:none; }
   nav { margin-left:auto; display:flex; gap:20px; }
-  .tab { cursor:pointer; color:var(--muted); padding-bottom:10px; border:0; border-bottom:2px solid transparent; margin-bottom:-1px; background:none; font:inherit; font-size:13.5px; }
+  .tab { cursor:pointer; color:var(--muted); padding-bottom:12px; border:0; border-bottom:2px solid transparent; margin-bottom:-1px; background:none; font:inherit; font-size:13.5px; }
   .tab:hover { color:var(--fg); }
   .tab.active { color:var(--fg); border-bottom-color:var(--accent); }
 
-  .controls { display:flex; flex-direction:column; gap:13px; padding:20px 0 0; }
+  .controls { display:flex; flex-direction:column; gap:12px; padding:20px 0 0; }
   .pillbox, .daybox { display:contents; }
-  .pills { display:flex; flex-wrap:wrap; gap:7px 18px; }
+  .pills { display:flex; flex-wrap:wrap; gap:8px 16px; }
   .pill { cursor:pointer; background:none; border:0; padding:0; font:inherit; font-size:13px; color:var(--fg); }
-  .pill:hover { color:var(--accent); }
+  .pill:hover { color:var(--accent-text); }
   .pill.off { color:var(--faint); }
   .pill.all { font-weight:600; margin-right:6px; }
-  .pill.all.on { color:var(--accent); }
-  .dayrow { display:flex; align-items:baseline; gap:10px 16px; flex-wrap:wrap; }
-  .days { display:flex; flex-wrap:wrap; align-items:baseline; gap:5px 18px; flex:1 1 auto; min-width:0; }
-  .day { cursor:pointer; background:none; border:0; padding:0; font:inherit; font-size:13px; color:var(--muted);
+  .pill.all.on { color:var(--accent-text); }
+  .dayrow { display:flex; align-items:baseline; gap:8px 16px; flex-wrap:wrap; }
+  .days { display:flex; flex-wrap:wrap; align-items:baseline; gap:0 16px; flex:1 1 auto; min-width:0; }
+  .day { cursor:pointer; background:none; border:0; padding:5px 0; font:inherit; font-size:13px; color:var(--muted);
          touch-action:none; user-select:none; -webkit-user-select:none; }  /* drag across days on touch */
   .day:hover { color:var(--fg); }
-  .day.active { color:var(--accent); font-weight:600; }
-  .sels { margin-left:auto; display:flex; gap:14px; }
-  .dday { font-size:12px; font-weight:600; color:var(--muted); padding:18px 0 7px; border-bottom:1px solid var(--line); }
-  .dday.today { color:var(--accent); }
-  .cday { font-size:12px; font-weight:600; color:var(--muted); padding:13px 0 3px; }
-  .cday.today { color:var(--accent); }
+  .day.active { color:var(--accent-text); font-weight:600; }
+  .sels { margin-left:auto; display:flex; gap:16px; }
+  .dday { font-size:12px; font-weight:600; color:var(--muted); padding:24px 0 8px; border-bottom:1px solid var(--line); }
+  .dday.today { color:var(--accent-text); }
+  .cday { font-size:12px; font-weight:600; color:var(--muted); padding:12px 0 4px; }
+  .cday.today { color:var(--accent-text); }
   .sel { font:inherit; font-size:13px; color:var(--fg); background:var(--bg); border:0; border-bottom:1px solid var(--line); padding:2px 4px 3px 2px; cursor:pointer; }
   .sel:hover { border-bottom-color:var(--faint); }
 
-  main { padding:8px 0 28px; }
+  main { padding:8px 0 32px; }
 
-  .csec { margin:30px 0 0; }
-  .chead { display:flex; align-items:center; gap:9px; padding:24px 0 9px; border-bottom:1px solid var(--line); }
+  .csec { margin:0; }
+  .chead { display:flex; align-items:center; gap:8px; padding:24px 0 8px; border-bottom:1px solid var(--line); }
   .cname { font-size:14px; font-weight:600; }
-  .caddr { margin-left:auto; color:var(--faint); font-size:12px; white-space:nowrap; }
+  .caddr { margin-left:auto; color:var(--muted); font-size:12px; white-space:nowrap; }
 
-  .film, .ev { display:flex; gap:16px; align-items:flex-start; padding:11px 0; border-bottom:1px solid var(--line); }
+  .film, .ev { display:flex; gap:16px; align-items:flex-start; padding:12px 0; border-bottom:1px solid var(--line); }
   .poster { flex:0 0 auto; width:46px; height:69px; object-fit:cover; border-radius:4px;
             background:var(--line); box-shadow:0 1px 3px rgba(0,0,0,.14);
             transition:transform .12s ease, box-shadow .12s ease; }
@@ -90,31 +90,36 @@
   .info { flex:1; min-width:0; padding-top:1px; }
   .ti { font-size:15px; line-height:1.25; }
   .ti a { text-decoration:none; }
-  .ti a:hover { color:var(--accent); }
+  .ti a:hover { color:var(--accent-text); }
   .by { color:var(--muted); font-size:13px; margin-top:1px; }
   /* Showtimes rows: time, title and cinema share the title's baseline; the
      poster centres on the text block (a no-op unless the text outgrows it). */
   .ev { align-items:baseline; }
   .ev .poster { align-self:center; }
+  /* The cinema is a top-right label: its capitals level with the title's
+     (1px lines up the two fonts' cap heights), not on its baseline. */
+  .ev .cin { align-self:flex-start; margin-top:1px; }
   /* TSPDT 1,000 Greatest Films rank, after the title. */
-  .tspdt { display:inline-block; margin-left:7px; padding:0 4px; border:1px solid currentColor; border-radius:2px;
-           color:var(--accent); font-size:10px; font-weight:700; line-height:1.45; vertical-align:2px;
+  .tspdt { display:inline-block; margin-left:8px; padding:0 4px; border:1px solid currentColor; border-radius:2px;
+           color:var(--accent-text); font-size:10px; font-weight:700; line-height:1.45; vertical-align:2px;
            white-space:nowrap; font-variant-numeric:tabular-nums; letter-spacing:.02em; }
   .times { flex:0 0 auto; display:flex; flex-wrap:wrap; gap:4px 12px; justify-content:flex-end; max-width:48%; color:var(--muted); font-size:14px; font-variant-numeric:tabular-nums; }
 
   .ev .t { flex:0 0 46px; color:var(--muted); font-size:14px; font-variant-numeric:tabular-nums; }
   .cin { flex:0 0 auto; color:var(--muted); font-size:12.5px; white-space:nowrap; }
+  .cinlink { text-decoration:none; }
+  .cinlink:hover { color:var(--accent-text); }
 
   /* Movies view: one section per film, then its screenings grouped by day. */
   .msec { margin:0; }
-  .mhead { display:flex; gap:16px; align-items:flex-start; padding:26px 0 10px; border-bottom:1px solid var(--line); }
+  .mhead { display:flex; gap:16px; align-items:flex-start; padding:24px 0 12px; border-bottom:1px solid var(--line); }
   .mhead .poster { width:46px; height:69px; }
   .minfo { flex:1; min-width:0; padding-top:1px; }
   .mtitle { font-size:15px; font-weight:600; line-height:1.25; }
   .mtitle a { text-decoration:none; }
-  .mtitle a:hover { color:var(--accent); }
+  .mtitle a:hover { color:var(--accent-text); }
   .mby { color:var(--muted); font-size:13px; margin-top:1px; }
-  .mdet { margin-top:3px; }
+  .mdet { margin-top:4px; }
   /* Lost in Frenchlation logo: in Showtimes, larger, between the film's lines
      and the cinema name; elsewhere, before the time. */
   .lif { display:inline-block; line-height:0; vertical-align:middle; }
@@ -128,13 +133,13 @@
   .ev .lif img { width:32px; height:32px; }
   .times .lif, .mtimes .lif { margin-right:8px; }
   .morig { font-style:italic; }
-  .mscreen { display:flex; gap:14px; align-items:baseline; padding:9px 0; border-bottom:1px solid var(--line); }
+  .mscreen { display:flex; gap:16px; align-items:baseline; padding:8px 0; border-bottom:1px solid var(--line); }
   .mdate { flex:0 0 72px; font-size:13px; font-weight:500; }
-  .mdate.today { color:var(--accent); }
-  .mcins { flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
+  .mdate.today { color:var(--accent-text); }
+  .mcins { flex:1; min-width:0; display:flex; flex-direction:column; gap:8px; }
   .mcin { display:flex; gap:12px; align-items:baseline; }
   .mcname { flex:1; min-width:0; color:var(--muted); font-size:13px; }
-  .mtimes { flex:0 0 auto; display:flex; flex-wrap:wrap; gap:4px 10px; justify-content:flex-end;
+  .mtimes { flex:0 0 auto; display:flex; flex-wrap:wrap; gap:4px 12px; justify-content:flex-end;
             max-width:52%; color:var(--muted); font-size:14px; font-variant-numeric:tabular-nums; }
 
   /* Movies view side index (like iOS Contacts): tap or drag to jump to a
@@ -147,7 +152,7 @@
      scrolling; sit clear of it. Touch keeps the index at the edge. */
   @media (pointer:fine) { #mindex { right:16px; } }
   #mindex span { display:block; padding:0 4px; font-size:var(--ifs,10.5px); line-height:1.65;
-                 font-weight:600; color:var(--accent); font-variant-numeric:tabular-nums; }
+                 font-weight:600; color:var(--accent-text); font-variant-numeric:tabular-nums; }
   #mindex span.no { color:var(--faint); }
   /* Four-digit decades read denser than single letters at the same pitch. */
   #mindex.dec span { line-height:2.3; }
@@ -156,11 +161,11 @@
      viewport's right edge; the centered column's side margin already covers part of it. */
   .wrap.has-idx { padding-right:max(24px, calc(var(--idxw,0px) - max(0px, (100vw - var(--maxw)) / 2))); }
 
-  .empty { color:var(--muted); font-size:13px; padding:14px 0; }
-  .note { color:var(--muted); font-size:13.5px; padding:60px 0; text-align:center; }
+  .empty { color:var(--muted); font-size:13px; padding:16px 0; }
+  .note { color:var(--muted); font-size:13.5px; padding:64px 0; text-align:center; }
 
-  footer { border-top:1px solid var(--line); margin-top:10px; }
-  .status { color:var(--muted); font-size:12.5px; padding:18px 0 60px; }
+  footer { border-top:1px solid var(--line); margin-top:12px; }
+  .status { color:var(--muted); font-size:12.5px; padding:16px 0 64px; }
 
   /* Narrow screens: let the header wrap so the tabs and the skin
      switcher never overflow — tabs drop to their own line. */
@@ -184,6 +189,7 @@
   body[data-skin="riso"] {
     --bg:#f1ece0; --fg:#1b1a17; --muted:#6b665b; --faint:#aaa192;
     --line:#1b1a17; --accent:#ff2e8a; --accent2:#0047ff; color-scheme:light;
+    --accent-text:#c8005f;  /* the pink, darkened to 4.9:1 on the paper for small text */
   }
   body[data-skin="riso"] .logo { font-family:"Archivo",system-ui,sans-serif; font-weight:900;
     letter-spacing:-.02em; font-size:19px; text-shadow:1.4px 1.4px 0 #ff2e8a; }
@@ -191,15 +197,15 @@
     text-transform:lowercase; }
   body[data-skin="riso"] .tab.active { color:var(--accent2); border-bottom-color:var(--accent);
     border-bottom-width:3px; }
-  body[data-skin="riso"] .pill { border:1.5px solid var(--fg); border-radius:2px; padding:3px 9px;
+  body[data-skin="riso"] .pill { border:1.5px solid var(--fg); border-radius:2px; padding:4px 8px;
     font-family:"Space Mono",ui-monospace,monospace; font-size:11px; background:#fff; color:var(--fg); }
   body[data-skin="riso"] .pill.off { color:var(--muted); border-color:var(--faint); background:transparent; }
   body[data-skin="riso"] .pill.all { margin-right:0; }
-  body[data-skin="riso"] .pill.all.on { background:var(--accent); color:#fff; border-color:var(--accent); }
-  body[data-skin="riso"] .pill.daypill.on { background:var(--accent2); border-color:var(--accent2); }
-  /* Day matches the Cinemas pill above it: 7 monospace characters + padding + border. */
-  body[data-skin] .pill.daypill { min-width:calc(7ch + 21px); }
-  body[data-skin="riso"] .pills { gap:7px; }
+  body[data-skin="riso"] .pill.all.on { background:var(--accent); color:var(--fg); border-color:var(--accent); }
+  body[data-skin="riso"] .pill.daypill.on { background:var(--accent2); color:#fff; border-color:var(--accent2); }
+  /* Days matches the Cinemas pill above it: 7 monospace characters + padding + border. */
+  body[data-skin] .pill.daypill { min-width:calc(7ch + 19px); }
+  body[data-skin="riso"] .pills { gap:8px; }
   body[data-skin="riso"] .day { font-family:"Space Mono",ui-monospace,monospace; font-size:11.5px; }
   body[data-skin="riso"] .day.active { color:var(--accent2); font-weight:700; }
   body[data-skin="riso"] .ti,
@@ -219,14 +225,14 @@
   body[data-skin="riso"] .mtimes,
   body[data-skin="riso"] .ev .t { font-family:"Space Mono",ui-monospace,monospace;
     color:var(--accent2); font-weight:700; }
-  body[data-skin="riso"] .poster { background:#0047ff; box-shadow:2.5px 2.5px 0 #ff2e8a; }
+  body[data-skin="riso"] .poster { background:#0047ff; box-shadow:none; }
   body[data-skin="riso"] .tspdt,
   body[data-skin="risonoir"] .tspdt { font-family:"Space Mono",ui-monospace,monospace; letter-spacing:0; }
 
   /* ---- 3 · Riso Noir (the two-ink zine on a black ground) ---- */
   body[data-skin="risonoir"] {
     --bg:#15131a; --fg:#ece6d6; --muted:#8f897c; --faint:#565064;
-    --line:#4b4654; --accent:#ff2e8a; --accent2:#6a97ff; color-scheme:dark;
+    --line:#4b4654; --accent:#ff2e8a; --accent2:#6a97ff; color-scheme:dark; --accent-text:#ff2e8a;
   }
   body[data-skin="risonoir"] .logo { font-family:"Archivo",system-ui,sans-serif; font-weight:900;
     letter-spacing:-.02em; font-size:19px; text-shadow:1.4px 1.4px 0 #ff2e8a; }
@@ -234,13 +240,13 @@
     text-transform:lowercase; }
   body[data-skin="risonoir"] .tab.active { color:var(--accent2); border-bottom-color:var(--accent);
     border-bottom-width:3px; }
-  body[data-skin="risonoir"] .pill { border:1.5px solid var(--fg); border-radius:2px; padding:3px 9px;
+  body[data-skin="risonoir"] .pill { border:1.5px solid var(--fg); border-radius:2px; padding:4px 8px;
     font-family:"Space Mono",ui-monospace,monospace; font-size:11px; background:transparent; color:var(--fg); }
   body[data-skin="risonoir"] .pill.off { color:var(--muted); border-color:var(--faint); background:transparent; }
   body[data-skin="risonoir"] .pill.all { margin-right:0; }
   body[data-skin="risonoir"] .pill.all.on { background:var(--accent); color:#15131a; border-color:var(--accent); }
   body[data-skin="risonoir"] .pill.daypill.on { background:var(--accent2); border-color:var(--accent2); }
-  body[data-skin="risonoir"] .pills { gap:7px; }
+  body[data-skin="risonoir"] .pills { gap:8px; }
   body[data-skin="risonoir"] .day { font-family:"Space Mono",ui-monospace,monospace; font-size:11.5px; }
   body[data-skin="risonoir"] .day.active { color:var(--accent2); font-weight:700; }
   body[data-skin="risonoir"] .ti,
@@ -260,20 +266,34 @@
   body[data-skin="risonoir"] .mtimes,
   body[data-skin="risonoir"] .ev .t { font-family:"Space Mono",ui-monospace,monospace;
     color:var(--accent2); font-weight:700; }
-  body[data-skin="risonoir"] .poster { background:#3a63d6; box-shadow:2.5px 2.5px 0 #ff2e8a; }
+  body[data-skin="risonoir"] .poster { background:#3a63d6; box-shadow:none; }
 
   /* Lost in Frenchlation pill: inked in the opposite tone so it stands apart
      from the cinemas; pink while it filters. */
   body[data-skin="riso"] .pill.lifpill { background:#1b1a17; color:#f1ece0; border-color:#1b1a17; }
   body[data-skin="risonoir"] .pill.lifpill { background:#ece6d6; color:#15131a; border-color:#ece6d6; }
-  body[data-skin] .pill.lifpill:hover { color:var(--accent); }
-  body[data-skin] .pill.lifpill.on { background:var(--accent); color:#fff; border-color:var(--accent); }
-  body[data-skin] .pill.lifpill.on:hover { color:#fff; }
+  body[data-skin] .pill.lifpill:hover { color:var(--accent-text); }
+  /* Ink on the pink (5:1); white on it is only 3.5:1. */
+  body[data-skin="riso"] .pill.lifpill.on, body[data-skin="riso"] .pill.lifpill.on:hover { color:#1b1a17; }
+  body[data-skin="risonoir"] .pill.lifpill.on, body[data-skin="risonoir"] .pill.lifpill.on:hover { color:#15131a; }
+  body[data-skin] .pill.lifpill.on { background:var(--accent); border-color:var(--accent); }
+
+  /* Day labels, the Movies view's dates and cinemas, the side index and
+     notes take the skins' mono like every other small label. */
+  body[data-skin] .dday, body[data-skin] .cday, body[data-skin] .mdate,
+  body[data-skin] #mindex span { font-family:"Space Mono",ui-monospace,monospace; font-weight:700; }
+  body[data-skin] .dday, body[data-skin] .cday, body[data-skin] .mdate { font-size:11.5px; }
+  body[data-skin] .mcname, body[data-skin] .note,
+  body[data-skin] .empty { font-family:"Space Mono",ui-monospace,monospace; font-size:11.5px; }
+  /* Small mono labels share one size. */
+  body[data-skin] .tab, body[data-skin] .pill { font-size:11.5px; }
+  /* A cinema's name heads its section, so it sits above the film titles. */
+  body[data-skin] .cname { font-size:17px; }
 
   /* Time filter ("Any time") takes each skin's type + a matching pill box. */
   body[data-skin="riso"] .sel,
   body[data-skin="risonoir"] .sel { font-family:"Space Mono",ui-monospace,monospace; font-size:11.5px;
-    border:0; border-radius:0; padding:0 2px; background:transparent; color:var(--muted); text-align:right; }
+    border:0; border-radius:0; padding:5px 2px; background:transparent; color:var(--muted); text-align:right; }
   body[data-skin="riso"] .sel:hover,
   body[data-skin="risonoir"] .sel:hover { color:var(--fg); }
 </style>
@@ -388,6 +408,11 @@ function tspdtBadge(lb){
 // event page in each matching showtime's "LiF" field.
 let lifMap = new Map();
 const lifKey = (date, cinema, time, title) => [date, cinema, time, title].join("|");
+// Each cinema's website (from data.json), linked from its name in every view.
+function cinemaLink(name){
+  const url = (data.cinemas.find(c => c.name === name) || {}).url;
+  return url ? `<a class="cinlink" href="${esc(url)}" target="_blank" rel="noopener">${esc(name)}</a>` : esc(name);
+}
 function indexLif(){
   lifMap = new Map(data.rows.filter(r => r.LiF)
     .map(r => [lifKey(r.date, r.cinema, r.time, r["Movie title"]), r.LiF]));
@@ -453,7 +478,7 @@ function renderCinema(){
     }
     if(state.lifOnly && !any) continue;  // only cinemas hosting their screenings
     html += `<div class="csec"><div class="chead">
-      <span class="cname">${esc(c.name)}</span>
+      <span class="cname">${cinemaLink(c.name)}</span>
       <span class="caddr">${esc(c.address)}</span></div>`;
     html += any ? body : `<div class="empty">No screenings.</div>`;
     html += `</div>`;
@@ -483,7 +508,7 @@ function renderDay(){
       out += `<div class="ev"><div class="t">${esc(r.time)}</div>
         ${posterImg(r)}
         <div class="info${r.lif ? " has-lif" : ""}"><div class="itext"><div class="ti">${titleLink(r.title, r.lb)}${tspdtBadge(r.lb)}</div>${r.meta ? `<div class="by">${r.meta}</div>` : ""}</div>${r.lif}</div>
-        <div class="cin">${esc(r.cinema)}</div></div>`;
+        <div class="cin">${cinemaLink(r.cinema)}</div></div>`;
     }
   }
   return out || `<div class="empty">No screenings.</div>`;
@@ -550,7 +575,7 @@ function renderMovies(){
       let inner = "";
       for(const cn of cins){
         const times = [...dm.get(cn)].sort();
-        inner += `<div class="mcin"><span class="mcname">${esc(cn)}</span>` +
+        inner += `<div class="mcin"><span class="mcname">${cinemaLink(cn)}</span>` +
           `<span class="mtimes">${times.map(t => `<span>${lifTag(date, cn, t, mv.title)}${esc(t)}</span>`).join("")}</span></div>`;
       }
       h += `<div class="mscreen"><div class="mdate${isToday(date) ? " today" : ""}">${isToday(date) ? "Today" : fmtDay(date)}</div>` +
@@ -682,9 +707,9 @@ function renderControls(){
         SORT_OPTS.filter(([v]) => v !== "tspdt" || tspdt.size)
           .map(([v,l]) => `<option value="${v}">${l}</option>`).join("") + `</select>`
       : "";
-    // "Day" is a collapsible blue pill like Cinemas: blue while the whole week
+    // "Days" is a collapsible blue pill like Cinemas: blue while the whole week
     // is shown; it opens the day buttons, and closing them returns to all week.
-    const dayPill = `<button class="pill all daypill${allDays ? " on" : ""}" data-dayall="1" aria-expanded="${state.daysOpen}">Day</button>`;
+    const dayPill = `<button class="pill all daypill${allDays ? " on" : ""}" data-dayall="1" aria-expanded="${state.daysOpen}">Days</button>`;
     html += `<div class="dayrow"><div class="days">${dayPill}${state.daysOpen ? dayBtns : ""}</div><div class="sels">${sortSel}${timeSel}</div></div>`;
   }
   if(daySig !== _daySig){ _daySig = daySig; dayBox.innerHTML = html; }
@@ -716,7 +741,7 @@ function renderControls(){
     renderAll();
   });
   // Days, the same in every view: the whole week by default; clicking a day
-  // shows just that day, and closing the Day pill goes back to the whole week.
+  // shows just that day, and closing the Days pill goes back to the whole week.
   const dayAllBtn = c.querySelector("[data-dayall]");
   if(dayAllBtn) dayAllBtn.onclick = () => {
     state.daysOpen = !state.daysOpen;
@@ -826,12 +851,22 @@ function renderStatus(){
   s.textContent = parts.join("  ·  ");
 }
 
+// The view's HTML is cheap to build (~5ms) but costly to swap in (~1,500
+// rows and posters to parse and lay out), so it is only replaced when it
+// actually changes, e.g. not when Cinemas or Days merely opens or closes.
+let _viewHTML = "";
+function setView(html){
+  if(html === _viewHTML) return;
+  _viewHTML = html;
+  document.getElementById("view").innerHTML = html;
+}
+
 function renderAll(){
   renderControls();
   renderStatus();
-  document.getElementById("view").innerHTML =
+  setView(
     state.view === "cinema" ? renderCinema() :
-    state.view === "movie"  ? renderMovies() : renderDay();
+    state.view === "movie"  ? renderMovies() : renderDay());
   renderIndex();
 }
 
@@ -847,12 +882,12 @@ async function loadTspdt(){
 async function load(){
   let r;
   try { r = await fetch("data.json", {cache:"no-store"}); }
-  catch(e) { document.getElementById("view").innerHTML = `<div class="note">Could not load data.json.</div>`; return; }
+  catch(e) { setView(`<div class="note">Could not load data.json.</div>`); return; }
   data = await r.json();
   indexLif();
   if(data.status === "scraping" && !data.rows.length){
     document.getElementById("status").textContent = "updating…";
-    document.getElementById("view").innerHTML = `<div class="note">Fetching the latest week… (~30–60s)</div>`;
+    setView(`<div class="note">Fetching the latest week… (~30–60s)</div>`);
     setTimeout(load, 1500);
     return;
   }

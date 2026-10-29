@@ -35,25 +35,42 @@ CSV_PATH = os.path.join(HERE, "ugc.csv")
 INDEX_PATH = os.path.join(HERE, "index.html")
 DATA_PATH = os.path.join(HERE, "data.json")
 
-# Per-cinema display metadata (address + a pastel, Wes-Anderson-ish colour).
+# Per-cinema display metadata (address, a pastel Wes-Anderson-ish colour, website).
 CINEMA_META = {
-    "Christine Cinéma Club":         ("4 rue Christine, 75006",        "#e8a09a"),
-    "Écoles Cinéma Club":            ("23 rue des Écoles, 75005",      "#e6c26b"),
-    "Le Champo":                     ("51 rue des Écoles, 75005",      "#8fb3ae"),
-    "Filmothèque du Quartier Latin": ("9 rue Champollion, 75005",      "#a8b47c"),
-    "Studio Galande":                ("42 rue Galande, 75005",         "#c9a0c4"),
-    "Le Grand Action":               ("5 rue des Écoles, 75005",       "#e8a87c"),
-    "mk2 Bibliothèque":              ("128-162 av. de France, 75013",  "#7fa8c9"),
-    "mk2 Odéon St-Germain":          ("113 bd Saint-Germain, 75006",   "#8ab0d4"),
-    "mk2 Odéon St-Michel":           ("7 rue Hautefeuille, 75006",     "#9ac4b0"),
-    "Épée de Bois":                  ("100 rue Mouffetard, 75005",     "#d98c7a"),
-    "Le Lucernaire":                 ("53 rue N.-D.-des-Champs, 75006", "#9db07c"),
-    "Cinéma du Panthéon":            ("13 rue Victor Cousin, 75005",   "#b0a4d4"),
-    "Le Grand Rex":                  ("1 bd Poissonnière, 75002",      "#d98cae"),
-    "Max Linder Panorama":           ("24 bd Poissonnière, 75009",     "#6fa8a0"),
-    "Nouvel Odéon":                  ("6 rue de l'École-de-Médecine, 75006", "#c7b06a"),
-    "Studio des Ursulines":          ("10 rue des Ursulines, 75005",   "#9c8cc4"),
-    "Reflet Médicis":                ("3 rue Champollion, 75005",      "#cf9b6f"),
+    "Christine Cinéma Club":         ("4 rue Christine, 75006",        "#e8a09a",
+                                     "https://pariscinemaclub.com/christine-cinema-club/"),
+    "Écoles Cinéma Club":            ("23 rue des Écoles, 75005",      "#e6c26b",
+                                     "https://pariscinemaclub.com/ecoles-cinema-club/"),
+    "Le Champo":                     ("51 rue des Écoles, 75005",      "#8fb3ae",
+                                     "https://www.cinema-lechampo.com/"),
+    "Filmothèque du Quartier Latin": ("9 rue Champollion, 75005",      "#a8b47c",
+                                     "https://lafilmotheque.fr/"),
+    "Studio Galande":                ("42 rue Galande, 75005",         "#c9a0c4",
+                                     "http://www.studiogalande.fr/"),
+    "Le Grand Action":               ("5 rue des Écoles, 75005",       "#e8a87c",
+                                     "https://www.legrandaction.com/"),
+    "mk2 Bibliothèque":              ("128-162 av. de France, 75013",  "#7fa8c9",
+                                     "https://www.mk2.com/salle/mk2-bibliotheque"),
+    "mk2 Odéon St-Germain":          ("113 bd Saint-Germain, 75006",   "#8ab0d4",
+                                     "https://www.mk2.com/salle/mk2-odeon-st-germain-st-michel"),
+    "mk2 Odéon St-Michel":           ("7 rue Hautefeuille, 75006",     "#9ac4b0",
+                                     "https://www.mk2.com/salle/mk2-odeon-st-germain-st-michel"),
+    "Épée de Bois":                  ("100 rue Mouffetard, 75005",     "#d98c7a",
+                                     "https://www.cine-epeedebois.fr/"),
+    "Le Lucernaire":                 ("53 rue N.-D.-des-Champs, 75006", "#9db07c",
+                                     "https://www.lucernaire.fr/"),
+    "Cinéma du Panthéon":            ("13 rue Victor Cousin, 75005",   "#b0a4d4",
+                                     "https://www.cinemadupantheon.fr/"),
+    "Le Grand Rex":                  ("1 bd Poissonnière, 75002",      "#d98cae",
+                                     "https://www.legrandrex.com/"),
+    "Max Linder Panorama":           ("24 bd Poissonnière, 75009",     "#6fa8a0",
+                                     "https://www.maxlinder.com/"),
+    "Nouvel Odéon":                  ("6 rue de l'École-de-Médecine, 75006", "#c7b06a",
+                                     "https://www.nouvelodeon.com/"),
+    "Studio des Ursulines":          ("10 rue des Ursulines, 75005",   "#9c8cc4",
+                                     "https://www.studiodesursulines.com/"),
+    "Reflet Médicis":                ("3 rue Champollion, 75005",      "#cf9b6f",
+                                     "https://www.dulaccinemas.com/cinema/reflet-medicis"),
 }
 
 # In-memory cache of the most recent scrape, guarded by a lock.
@@ -95,8 +112,8 @@ def run_scrape():
 def cinema_list():
     out = []
     for _, name in scrape_ugc.CINEMAS:
-        address, color = CINEMA_META.get(name, ("", "#888888"))
-        out.append({"name": name, "address": address, "color": color})
+        address, color, url = CINEMA_META.get(name, ("", "#888888", ""))
+        out.append({"name": name, "address": address, "color": color, "url": url})
     return out
 
 
