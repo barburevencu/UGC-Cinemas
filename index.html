@@ -92,6 +92,10 @@
   .ti a { text-decoration:none; }
   .ti a:hover { color:var(--accent); }
   .by { color:var(--muted); font-size:13px; margin-top:1px; }
+  /* Showtimes rows: tighter title leading, and the poster centred on the
+     text block (a no-op unless the text outgrows the poster). */
+  .ev .ti { line-height:1.25; }
+  .ev .poster { align-self:center; }
   /* TSPDT 1,000 Greatest Films rank, after the title. */
   .tspdt { display:inline-block; margin-left:7px; padding:0 4px; border:1px solid currentColor; border-radius:2px;
            color:var(--accent); font-size:10px; font-weight:700; line-height:1.45; vertical-align:2px;
@@ -302,7 +306,14 @@
 const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 let data = null, inited = false, _dataSig = null;
-const state = { view:"day", active:new Set(), minTime:"", daysActive:new Set(), pillsOpen:false, yearBuckets:new Set(), yearOpen:false, movieSort:"title", tspdtOnly:false, lifOnly:false, daysOpen:false };
+const initialState = () => ({ view:"day", active:new Set(), minTime:"", daysActive:new Set(), pillsOpen:false, yearBuckets:new Set(), yearOpen:false, movieSort:"title", tspdtOnly:false, lifOnly:false, daysOpen:false });
+const state = initialState();
+// First-load filters that depend on the data: every cinema, the whole week, every decade.
+function resetFilters(){
+  state.active = new Set(data.cinemas.map(c => c.name));
+  state.daysActive = new Set(data.dates);
+  state.yearBuckets = new Set(YEAR_BUCKETS.map(b => b.k));
+}
 
 // TSPDT "1,000 Greatest Films": Letterboxd slug -> rank, from tspdt.json
 // (snapshotted by fetch_tspdt.py). Stays empty if the file can't be loaded.
@@ -844,9 +855,7 @@ async function load(){
     return;
   }
   if(!inited){
-    state.active = new Set(data.cinemas.map(c => c.name));
-    state.daysActive = new Set(data.dates);  // the whole week by default
-    state.yearBuckets = new Set(YEAR_BUCKETS.map(b => b.k));
+    resetFilters();
     inited = true;
   }
   // Keep day toggles in sync when the window of dates shifts (e.g. the daily
@@ -871,6 +880,18 @@ document.getElementById("tabs").onclick = (e) => {
   t.classList.add("active");
   state.view = t.dataset.view;
   renderAll();
+};
+
+// Logo: back to the first-load view without reloading (and re-downloading
+// data.json). Modified clicks keep the plain link, e.g. open in a new tab.
+document.querySelector(".logo").onclick = (e) => {
+  if(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0 || !data) return;
+  e.preventDefault();
+  Object.assign(state, initialState());
+  resetFilters();
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.view === "day"));
+  renderAll();
+  scrollTo({top:0, behavior:"smooth"});
 };
 
 // --- Theme follows the sun in Paris: Riso by day, Riso Noir after sunset. ---
