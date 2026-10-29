@@ -99,9 +99,10 @@
   /* The cinema is a top-right label: its capitals level with the title's
      (1px lines up the two fonts' cap heights), not on its baseline. */
   .ev .cin { align-self:flex-start; margin-top:1px; }
-  /* TSPDT 1,000 Greatest Films rank, after the title. */
+  /* TSPDT 1,000 Greatest Films rank, after the title. Raised 1.4px off the
+     baseline so the frame centres on the title's capitals (Archivo 15px). */
   .tspdt { display:inline-block; margin-left:8px; padding:0 4px; border:1px solid currentColor; border-radius:2px;
-           color:var(--accent-text); font-size:10px; font-weight:700; line-height:1.45; vertical-align:2px;
+           color:var(--accent-text); font-size:10px; font-weight:700; line-height:1.45; vertical-align:1.4px;
            white-space:nowrap; font-variant-numeric:tabular-nums; letter-spacing:.02em; }
   .times { flex:0 0 auto; display:flex; flex-wrap:wrap; gap:4px 12px; justify-content:flex-end; max-width:48%; color:var(--muted); font-size:14px; font-variant-numeric:tabular-nums; }
 
