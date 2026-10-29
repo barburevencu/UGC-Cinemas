@@ -79,7 +79,7 @@
   .poster { flex:0 0 auto; width:46px; height:69px; object-fit:cover; border-radius:4px;
             background:var(--line); box-shadow:0 1px 3px rgba(0,0,0,.14);
             transition:transform .12s ease, box-shadow .12s ease; }
-  .poster:hover { transform:scale(1.07); box-shadow:0 4px 12px rgba(0,0,0,.35); }
+  img.poster:hover { transform:scale(1.07); box-shadow:0 4px 12px rgba(0,0,0,.35); }
 
   /* Poster lightbox: click a thumbnail to see it full size. */
   #lightbox { position:fixed; inset:0; z-index:100; display:none; align-items:center; justify-content:center;
@@ -88,13 +88,13 @@
   #lightbox img { max-width:92vw; max-height:88vh; border-radius:6px; box-shadow:0 16px 50px rgba(0,0,0,.55); }
   .ev .poster { width:34px; height:51px; }
   .info { flex:1; min-width:0; padding-top:1px; }
-  .ti { font-size:15px; }
+  .ti { font-size:15px; line-height:1.25; }
   .ti a { text-decoration:none; }
   .ti a:hover { color:var(--accent); }
   .by { color:var(--muted); font-size:13px; margin-top:1px; }
-  /* Showtimes rows: tighter title leading, and the poster centred on the
-     text block (a no-op unless the text outgrows the poster). */
-  .ev .ti { line-height:1.25; }
+  /* Showtimes rows: time, title and cinema share the title's baseline; the
+     poster centres on the text block (a no-op unless the text outgrows it). */
+  .ev { align-items:baseline; }
   .ev .poster { align-self:center; }
   /* TSPDT 1,000 Greatest Films rank, after the title. */
   .tspdt { display:inline-block; margin-left:7px; padding:0 4px; border:1px solid currentColor; border-radius:2px;
@@ -110,7 +110,7 @@
   .mhead { display:flex; gap:16px; align-items:flex-start; padding:26px 0 10px; border-bottom:1px solid var(--line); }
   .mhead .poster { width:46px; height:69px; }
   .minfo { flex:1; min-width:0; padding-top:1px; }
-  .mtitle { font-size:15px; font-weight:600; }
+  .mtitle { font-size:15px; font-weight:600; line-height:1.25; }
   .mtitle a { text-decoration:none; }
   .mtitle a:hover { color:var(--accent); }
   .mby { color:var(--muted); font-size:13px; margin-top:1px; }
@@ -171,6 +171,7 @@
        squeezing the title column (long names like Filmothèque…). */
     .ev { display:grid; grid-template-columns:46px auto minmax(0, 1fr); gap:0 16px; }
     .ev .t, .ev .poster { grid-row:1 / span 2; }
+    .ev .poster { align-self:start; }  /* rows here are always 3+ lines: top, level with the time */
     .ev .info, .ev .cin { grid-column:3; }
     .ev .cin { white-space:normal; margin-top:2px; }  }
 
@@ -422,11 +423,12 @@ function titleLink(title, lb){
   return lb ? `<a href="${esc(lb)}" target="_blank" rel="noopener">${esc(title)}</a>` : esc(title);
 }
 function posterImg(f){
-  if(!f.poster) return "";
+  // No poster (or it fails to load): an empty tile keeps the title column aligned.
+  if(!f.poster) return `<span class="poster"></span>`;
   // No loading="lazy": the view's HTML is rebuilt on every filter change, and
   // lazy-created <img>s blank for a frame before repainting cached posters
   // (a flicker). Eager + async decode lets cached thumbnails repaint at once.
-  return `<img class="poster" src="${esc(f.poster)}" alt="" decoding="async" onerror="this.remove()">`;
+  return `<img class="poster" src="${esc(f.poster)}" alt="" decoding="async" onerror="this.replaceWith(Object.assign(document.createElement('span'), {className:'poster'}))">`;
 }
 
 function renderCinema(){
@@ -923,7 +925,7 @@ setInterval(applyAutoSkin, 300000);   // re-check every 5 min so it flips at sun
 const _lb = document.getElementById("lightbox"), _lbImg = _lb.querySelector("img");
 function closeLightbox(){ _lb.classList.remove("open"); _lb.setAttribute("aria-hidden", "true"); _lbImg.removeAttribute("src"); }
 document.getElementById("view").addEventListener("click", (e) => {
-  const img = e.target.closest(".poster"); if(!img) return;
+  const img = e.target.closest("img.poster"); if(!img) return;
   _lbImg.src = img.currentSrc || img.src;
   _lb.classList.add("open"); _lb.setAttribute("aria-hidden", "false");
 });
