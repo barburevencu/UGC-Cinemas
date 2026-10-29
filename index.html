@@ -71,7 +71,7 @@
   main { padding:8px 0 32px; }
 
   .csec { margin:0; }
-  .chead { display:flex; align-items:center; gap:8px; padding:24px 0 8px; border-bottom:1px solid var(--line); }
+  .chead { display:flex; align-items:baseline; gap:8px; padding:24px 0 8px; border-bottom:1px solid var(--line); }
   .cname { font-size:14px; font-weight:600; }
   .caddr { margin-left:auto; color:var(--muted); font-size:12px; white-space:nowrap; }
 
@@ -95,6 +95,9 @@
   /* Showtimes rows: time, title and cinema share the title's baseline; the
      poster centres on the text block (a no-op unless the text outgrows it). */
   .ev { align-items:baseline; }
+  /* Cinemas rows: the showtimes share the title's baseline; the poster stays at the top. */
+  .film { align-items:baseline; }
+  .film .poster { align-self:flex-start; }
   .ev .poster { align-self:center; }
   /* The cinema is a top-right label: its capitals level with the title's
      (1px lines up the two fonts' cap heights), not on its baseline. */
@@ -134,7 +137,7 @@
   .times .lif, .mtimes .lif { margin-right:8px; }
   .morig { font-style:italic; }
   .mscreen { display:flex; gap:16px; align-items:baseline; padding:8px 0; border-bottom:1px solid var(--line); }
-  .mdate { flex:0 0 72px; font-size:13px; font-weight:500; }
+  .mdate { flex:0 0 46px; font-size:13px; font-weight:500; }  /* poster-wide: cinemas line up under the title */
   .mdate.today { color:var(--accent-text); }
   .mcins { flex:1; min-width:0; display:flex; flex-direction:column; gap:8px; }
   .mcin { display:flex; gap:12px; align-items:baseline; }
@@ -180,7 +183,7 @@
        title's capitals (5.7px below the row's top padding, Archivo 15px). */
     .ev .poster { align-self:start; margin-top:5.7px; }
     .ev .info, .ev .cin { grid-column:3; }
-    .ev .cin { white-space:normal; margin-top:2px; }
+    .ev .cin { white-space:normal; margin-top:1px; }  /* same gap as title to director */
     /* Film lines: just director and year (see movieMetaLine). */
     .ph-hide, .mdet { display:none; }  }
 
@@ -422,6 +425,12 @@ function cinemaLink(name){
   const url = (data.cinemas.find(c => c.name === name) || {}).url;
   return url ? `<a class="cinlink" href="${esc(url)}" target="_blank" rel="noopener">${esc(name)}</a>` : esc(name);
 }
+// A cinema's address, linked to a Google Maps search for the cinema there.
+function addressLink(c){
+  if(!c.address) return "";
+  const q = encodeURIComponent(`${c.name}, ${c.address} Paris`);
+  return `<a class="cinlink" href="https://www.google.com/maps/search/?api=1&query=${q}" target="_blank" rel="noopener">${esc(c.address)}</a>`;
+}
 function indexLif(){
   lifMap = new Map(data.rows.filter(r => r.LiF)
     .map(r => [lifKey(r.date, r.cinema, r.time, r["Movie title"]), r.LiF]));
@@ -488,7 +497,7 @@ function renderCinema(){
     if(state.lifOnly && !any) continue;  // only cinemas hosting their screenings
     html += `<div class="csec"><div class="chead">
       <span class="cname">${cinemaLink(c.name)}</span>
-      <span class="caddr">${esc(c.address)}</span></div>`;
+      <span class="caddr">${addressLink(c)}</span></div>`;
     html += any ? body : `<div class="empty">No screenings.</div>`;
     html += `</div>`;
   }
