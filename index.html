@@ -251,6 +251,14 @@
     color:var(--accent2); font-weight:700; }
   body[data-skin="risonoir"] .poster { background:#3a63d6; box-shadow:2.5px 2.5px 0 #ff2e8a; }
 
+  /* Lost in Frenchlation pill: inked in the opposite tone so it stands apart
+     from the cinemas; pink while it filters. */
+  body[data-skin="riso"] .pill.lifpill { background:#1b1a17; color:#f1ece0; border-color:#1b1a17; }
+  body[data-skin="risonoir"] .pill.lifpill { background:#ece6d6; color:#15131a; border-color:#ece6d6; }
+  body[data-skin] .pill.lifpill:hover { color:var(--accent); }
+  body[data-skin] .pill.lifpill.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  body[data-skin] .pill.lifpill.on:hover { color:#fff; }
+
   /* Time filter ("Any time") takes each skin's type + a matching pill box. */
   body[data-skin="riso"] .sel,
   body[data-skin="risonoir"] .sel { font-family:"Space Mono",ui-monospace,monospace; font-size:11.5px;
@@ -288,7 +296,7 @@
 const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 let data = null, inited = false, _dataSig = null;
-const state = { view:"day", active:new Set(), minTime:"", daysActive:new Set(), movieDays:new Set(), pillsOpen:false, yearBuckets:new Set(), yearOpen:false, daysPristine:true, movieSort:"title", tspdtOnly:false };
+const state = { view:"day", active:new Set(), minTime:"", daysActive:new Set(), movieDays:new Set(), pillsOpen:false, yearBuckets:new Set(), yearOpen:false, daysPristine:true, movieSort:"title", tspdtOnly:false, lifOnly:false };
 
 // TSPDT "1,000 Greatest Films": Letterboxd slug -> rank, from tspdt.json
 // (snapshotted by fetch_tspdt.py). Stays empty if the file can't be loaded.
@@ -367,6 +375,8 @@ function indexLif(){
   lifMap = new Map(data.rows.filter(r => r.LiF)
     .map(r => [lifKey(r.date, r.cinema, r.time, r["Movie title"]), r.LiF]));
 }
+// "Lost in Frenchlation" pill (end of the Cinemas list): only their screenings.
+function inLif(r){ return !state.lifOnly || lifMap.has(lifKey(r.date, r.cinema, r.time, r["Movie title"])); }
 function lifTag(date, cinema, time, title){
   const url = lifMap.get(lifKey(date, cinema, time, title));
   if(!url) return "";
@@ -380,6 +390,7 @@ function filmsFor(name, date){
   for(const r of data.rows){
     if(r.cinema !== name || r.date !== date) continue;
     if(state.minTime && r.time < state.minTime) continue;
+    if(!inLif(r)) continue;
     const k = r["Movie title"] + "|" + r["Year"];
     let f = m.get(k);
     if(!f){ f = {title:r["Movie title"], orig:r["Original title"], director:r["Director"], year:r["Year"], country:r["Country"],
@@ -422,13 +433,14 @@ function renderCinema(){
           </div><div class="times">${f.times.map(t => `<span>${lifTag(date, c.name, t, f.title)}${esc(t)}</span>`).join("")}</div></div>`;
       }
     }
+    if(state.lifOnly && !any) continue;  // only cinemas hosting their screenings
     html += `<div class="csec"><div class="chead">
       <span class="cname">${esc(c.name)}</span>
       <span class="caddr">${esc(c.address)}</span></div>`;
     html += any ? body : `<div class="empty">No screenings.</div>`;
     html += `</div>`;
   }
-  return html || `<div class="empty">No cinema selected.</div>`;
+  return html || `<div class="empty">${state.lifOnly ? "No Lost in Frenchlation screenings on these days." : "No cinema selected."}</div>`;
 }
 
 function renderDay(){
@@ -469,6 +481,7 @@ function renderMovies(){
     if(!state.active.has(r.cinema)) continue;
     if(!state.movieDays.has(r.date)) continue;
     if(state.minTime && r.time < state.minTime) continue;
+    if(!inLif(r)) continue;
     if(!yearInBuckets(r["Year"])) continue;
     if(!inTspdt(r["Letterboxd"])) continue;
     const k = r["Movie title"] + "|" + r["Year"];
@@ -611,7 +624,7 @@ function renderControls(){
     [...state.active].sort().join(","), state.minTime,
     [...state.yearBuckets].sort().join(","), state.yearOpen,
     [...state.daysActive].sort().join(","), [...state.movieDays].sort().join(","), state.pillsOpen,
-    state.tspdtOnly, tspdt.size, state.movieSort].join("|");
+    state.tspdtOnly, tspdt.size, state.movieSort, state.lifOnly, lifMap.size].join("|");
   if(sig === _controlsSig) return;
   _controlsSig = sig;
 
@@ -626,7 +639,9 @@ function renderControls(){
     (tspdt.size ? `<button class="pill all${state.tspdtOnly ? " on" : ""}" data-tspdt="1" aria-pressed="${state.tspdtOnly}"` +
       ` title="Only films in TSPDT's 1,000 Greatest Films, with their rank">TSPDT</button>` : "");
   const cinemaPills = state.pillsOpen ? data.cinemas.map(x =>
-    `<button class="pill${state.active.has(x.name) ? "" : " off"}" data-n="${esc(x.name)}">${esc(x.name)}</button>`).join("") : "";
+    `<button class="pill${state.active.has(x.name) ? "" : " off"}" data-n="${esc(x.name)}">${esc(x.name)}</button>`).join("") +
+    (lifMap.size ? `<button class="pill lifpill${state.lifOnly ? " on" : ""}" data-lif="1" aria-pressed="${state.lifOnly}"` +
+      ` title="Only Lost in Frenchlation screenings: French films with English subtitles">Lost in Frenchlation</button>` : "") : "";
   let html = `<div class="pills">` +
     `<button class="pill all${allActive ? " on" : ""}" data-all="1">Cinemas</button>` +
     cinemaPills + (state.pillsOpen ? "" : yearBtn) + `</div>`;
@@ -652,7 +667,7 @@ function renderControls(){
   if(allBtn) allBtn.onclick = () => {
     state.pillsOpen = !state.pillsOpen;
     // Collapsing tucks the list away and returns to "all cinemas".
-    if(!state.pillsOpen) state.active = new Set(data.cinemas.map(x => x.name));
+    if(!state.pillsOpen){ state.active = new Set(data.cinemas.map(x => x.name)); state.lifOnly = false; }
     renderAll();
   };
   c.querySelectorAll(".pill[data-n]").forEach(b => b.onclick = () => {
@@ -699,6 +714,8 @@ function renderControls(){
     if(!state.yearOpen) state.yearBuckets = new Set(YEAR_BUCKETS.map(b => b.k));
     renderAll();
   };
+  const lifBtn = c.querySelector("[data-lif]");
+  if(lifBtn) lifBtn.onclick = () => { state.lifOnly = !state.lifOnly; renderAll(); };
   const tspdtBtn = c.querySelector("[data-tspdt]");
   if(tspdtBtn) tspdtBtn.onclick = () => {
     state.tspdtOnly = !state.tspdtOnly;
