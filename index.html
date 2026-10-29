@@ -47,6 +47,7 @@
   .tab.active { color:var(--fg); border-bottom-color:var(--accent); }
 
   .controls { display:flex; flex-direction:column; gap:13px; padding:20px 0 0; }
+  .pillbox, .daybox { display:contents; }
   .pills { display:flex; flex-wrap:wrap; gap:7px 18px; }
   .pill { cursor:pointer; background:none; border:0; padding:0; font:inherit; font-size:13px; color:var(--fg); }
   .pill:hover { color:var(--accent); }
@@ -613,20 +614,22 @@ function renderIndex(){
   addEventListener("resize", () => { document.getElementById("mindex").dataset.sig = ""; if(data) renderIndex(); });
 })();
 
-let _controlsSig = null;
+let _pillSig = null, _daySig = null;
 function renderControls(){
   const c = document.getElementById("controls");
   const allActive = state.active.size === data.cinemas.length;
-  // Skip rebuilding the controls when nothing they depend on changed. Otherwise
-  // the 1.5s refresh-poll would recreate the <select> and pills mid-interaction
-  // (closing an open dropdown, so the time filter felt broken while refreshing).
-  const sig = [state.view, data.dates.join(","), data.cinemas.map(x => x.name).join(","),
-    [...state.active].sort().join(","), state.minTime,
-    [...state.yearBuckets].sort().join(","), state.yearOpen,
-    [...state.daysActive].sort().join(","), [...state.movieDays].sort().join(","), state.pillsOpen,
-    state.tspdtOnly, tspdt.size, state.movieSort, state.lifOnly, lifMap.size].join("|");
-  if(sig === _controlsSig) return;
-  _controlsSig = sig;
+  // Two parts, each rebuilt only when what it shows changed: the pill rows,
+  // and the day row with the sort/time <select>s. A <select> must never be
+  // rebuilt by its own change: Safari crashes ("This webpage was reloaded
+  // because a problem occurred") when the menu's element is replaced while it
+  // is committing the pick, so the selects' values are set in place instead.
+  if(!c.querySelector(".pillbox")) c.innerHTML = `<div class="pillbox"></div><div class="daybox"></div>`;
+  const pillBox = c.querySelector(".pillbox"), dayBox = c.querySelector(".daybox");
+  const pillSig = [data.cinemas.map(x => x.name).join(","), [...state.active].sort().join(","),
+    [...state.yearBuckets].sort().join(","), state.yearOpen, state.pillsOpen,
+    state.tspdtOnly, tspdt.size, state.lifOnly, lifMap.size].join("|");
+  const daySig = [state.view, data.dates.join(","), [...state.daysActive].sort().join(","),
+    [...state.movieDays].sort().join(","), tspdt.size].join("|");
 
   // Cinemas and Year are collapsible pink buttons. Year sits beside Cinemas on
   // one row while Cinemas is collapsed (its buckets expand inline there too);
@@ -646,23 +649,32 @@ function renderControls(){
     `<button class="pill all${allActive ? " on" : ""}" data-all="1">Cinemas</button>` +
     cinemaPills + (state.pillsOpen ? "" : yearBtn) + `</div>`;
   if(state.pillsOpen) html += `<div class="pills">` + yearBtn + `</div>`;
+  if(pillSig !== _pillSig){ _pillSig = pillSig; pillBox.innerHTML = html; }
+  html = "";
   // One multi-select day row for Cinemas, Daily and Movies; Weekly always shows
   // the whole week. The "Any time" filter rides on the right of the same row.
   if(state.view !== "week"){
+    const allDays = curDays().size === data.dates.length;
     const dayBtns = data.dates.map(d =>
-      `<button class="day${curDays().has(d) ? " active" : ""}" data-d="${esc(d)}">${isToday(d) ? "Today" : fmtDay(d)}</button>`).join("");
+      `<button class="day${curDays().has(d) ? " active" : ""}" data-d="${esc(d)}">${isToday(d) ? "Today" : fmtDay(d)}</button>`).join("") +
+      // "All week" selects every day at once; tapping it again goes back to today.
+      `<button class="day${allDays ? " active" : ""}" data-week="1">All week</button>`;
     const timeSel = (state.view === "day" || state.view === "movie" || state.view === "cinema")
       ? `<select id="minTime" class="sel" aria-label="Filter by start time">` +
-        TIME_OPTS.map(([v,l]) => `<option value="${v}"${v === state.minTime ? " selected" : ""}>${l}</option>`).join("") + `</select>`
+        TIME_OPTS.map(([v,l]) => `<option value="${v}">${l}</option>`).join("") + `</select>`
       : "";
     const sortSel = state.view === "movie"
       ? `<select id="movieSort" class="sel" aria-label="Sort movies">` +
         SORT_OPTS.filter(([v]) => v !== "tspdt" || tspdt.size)
-          .map(([v,l]) => `<option value="${v}"${v === state.movieSort ? " selected" : ""}>${l}</option>`).join("") + `</select>`
+          .map(([v,l]) => `<option value="${v}">${l}</option>`).join("") + `</select>`
       : "";
     html += `<div class="dayrow"><div class="days">${dayBtns}</div><div class="sels">${sortSel}${timeSel}</div></div>`;
   }
-  c.innerHTML = html;
+  if(daySig !== _daySig){ _daySig = daySig; dayBox.innerHTML = html; }
+  // Selected values are set in place (see above), never by rebuilding.
+  const timeBox = c.querySelector("#minTime"), sortBoxEl = c.querySelector("#movieSort");
+  if(timeBox && timeBox.value !== state.minTime) timeBox.value = state.minTime;
+  if(sortBoxEl && sortBoxEl.value !== state.movieSort) sortBoxEl.value = state.movieSort;
   const allBtn = c.querySelector("[data-all]");
   if(allBtn) allBtn.onclick = () => {
     state.pillsOpen = !state.pillsOpen;
@@ -690,7 +702,15 @@ function renderControls(){
   // selection replaces it, so clicking another date drops Today instead of adding.
   // Movies: from the full week, a click isolates that day; deselecting the
   // last remaining day goes back to the full week.
-  c.querySelectorAll(".day").forEach(b => b.onclick = () => {
+  const weekBtn = c.querySelector("[data-week]");
+  if(weekBtn) weekBtn.onclick = () => {
+    const today = new Set([data.dates.includes(todayStr()) ? todayStr() : data.dates[0]]);
+    const all = new Set(data.dates), isAll = curDays().size === data.dates.length;
+    if(state.view === "movie") state.movieDays = isAll ? today : all;
+    else { state.daysActive = isAll ? today : all; state.daysPristine = isAll; }
+    renderAll();
+  };
+  c.querySelectorAll(".day[data-d]").forEach(b => b.onclick = () => {
     const d = b.dataset.d, s = curDays(), isDaily = s === state.daysActive;
     if(s === state.movieDays){
       if(s.size === data.dates.length) state.movieDays = new Set([d]);
