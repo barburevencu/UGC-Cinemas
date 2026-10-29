@@ -178,7 +178,9 @@
     .ev .t, .ev .poster { grid-row:1 / span 2; }
     .ev .poster { align-self:start; }  /* rows here are always 3+ lines: top, level with the time */
     .ev .info, .ev .cin { grid-column:3; }
-    .ev .cin { white-space:normal; margin-top:2px; }  }
+    .ev .cin { white-space:normal; margin-top:2px; }
+    /* Film lines: just director and year (see movieMetaLine). */
+    .ph-hide, .mdet { display:none; }  }
 
   /* ============================================================
      SKINS — two looks over the shared structure, toggled by
@@ -364,14 +366,19 @@ function todayStr(){ const d=new Date(); return [d.getFullYear(), String(d.getMo
 function isToday(s){ return s===todayStr(); }
 function fmtDay(iso){ const [y,m,d]=iso.split("-").map(Number); const dd=new Date(y,m-1,d); return WD[dd.getDay()]+" "+d; }
 function fmtUpdated(iso){ const [y,m,d]=iso.slice(0,10).split("-").map(Number); const dd=new Date(y,m-1,d); return WD[dd.getDay()]+", "+MO[m-1]+" "+d; }
-function metaLine(f){ return [f.director, f.year, f.country].filter(Boolean).join(" · "); }
 // Film lines (credits in every view, details in Movies and Cinemas). The credits line leads with the original title for
 // non-English films when it differs from the English one beyond
 // accents/punctuation (AlloCiné's "12 Angry Men" is "Twelve Angry Men").
-// Returns HTML: "<i>Xia nü</i> · King Hu · 1971 · Taiwan".
+// Returns HTML: "<i>Xia nü</i> · King Hu · 1971 · Taiwan". Phones keep only
+// director and year: the original title and country are .ph-hide spans, each
+// carrying its own " · " so no stray separator is left behind.
 function movieMetaLine(f){
   const orig = origTitle(f);
-  return [orig ? `<span class="morig">${esc(orig)}</span>` : "", esc(metaLine(f))].filter(Boolean).join(" · ");
+  const parts = [[f.director, ""], [f.year, ""], [f.country, "ph-hide"]].filter(([v]) => v);
+  const rest = parts.map(([v, cls], i) =>
+    `<span${cls ? ` class="${cls}"` : ""}>${i ? " · " : ""}${esc(v)}</span>`).join("");
+  const lead = orig ? `<span class="ph-hide"><span class="morig">${esc(orig)}</span>${rest ? " · " : ""}</span>` : "";
+  return lead + rest;
 }
 // "129 min · Drama, History" (two genres at most).
 function detailLine(f){
