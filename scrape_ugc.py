@@ -11,13 +11,16 @@ Usage:
     python3 scrape_ugc.py 2026-06-20      # that day + next 6 days
     python3 scrape_ugc.py 2026-06-20 -o out.csv
 
-CSV columns: Movie title, Director, Year, cinema, date, time, Letterboxd, Poster
+CSV columns: Movie title, Original title, Director, Year, Country, cinema,
+date, time, Letterboxd, Poster, Runtime, Genres, Language
 
 When a TMDB API key is available (set the TMDB_API_KEY environment variable,
 or pass --tmdb-key), the "Movie title" is replaced with the film's English
-title, the "Letterboxd" column is filled with its Letterboxd page, and the
-"Poster" column with that page's poster image. Without a key, titles are left
-as scraped and "Letterboxd"/"Poster" are blank.
+title, the "Letterboxd" column is filled with its Letterboxd page, the
+"Poster" column with that page's poster image, and "Runtime" (minutes),
+"Genres" and "Language" (original language code, e.g. "en") with TMDB's
+details. Without a key, titles are left as scraped and
+those columns are blank.
 """
 
 import argparse
@@ -292,6 +295,33 @@ def letterboxd_poster(film_url):
     return m.group(1) if m else ""
 
 
+_LB_TMDB_ID_RE = re.compile(r'data-tmdb-id="(\d+)"')
+
+
+def letterboxd_tmdb_id(film_url):
+    """Read the TMDB id off a Letterboxd film page ('' if none)."""
+    if not film_url:
+        return ""
+    req = urllib.request.Request(film_url, headers={"User-Agent": HEADERS["User-Agent"]})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            html = resp.read().decode("utf-8", "replace")
+    except urllib.error.URLError:
+        return ""
+    m = _LB_TMDB_ID_RE.search(html)
+    return m.group(1) if m else ""
+
+
+def tmdb_details(movie_id, key):
+    """Return (runtime in minutes, comma-joined genres, original language code)."""
+    if not movie_id:
+        return "", "", ""
+    data = tmdb_get(f"/movie/{movie_id}", {}, key) or {}
+    runtime = str(data["runtime"]) if data.get("runtime") else ""
+    genres = ", ".join(g["name"] for g in data.get("genres") or [] if g.get("name"))
+    return runtime, genres, data.get("original_language") or ""
+
+
 def name_tokens(s):
     """Lowercase, accent-stripped word tokens (len > 2) of a name string."""
     s = unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode()
@@ -374,7 +404,7 @@ def tmdb_enrich(titles, year, key, director=""):
     it — this rejects same-title-wrong-film matches (e.g. "Paprika"). If none
     match, look the film up in the director's filmography instead; only then
     fall back to the top search result.
-    Returns (english_title, letterboxd_url), or ('', '').
+    Returns (english_title, letterboxd_url, tmdb_id), or ('', '', '').
     """
     candidates = [t for t in dict.fromkeys(titles) if t]
     results = tmdb_candidates(candidates, year, key)
@@ -388,10 +418,10 @@ def tmdb_enrich(titles, year, key, director=""):
             chosen = tmdb_by_director(director, year, candidates, key)
     if chosen is None:
         if not results:
-            return "", ""
+            return "", "", ""
         chosen = results[0]
     english = chosen.get("title") or chosen.get("original_title") or ""
-    return english, letterboxd_url(chosen["id"])
+    return english, letterboxd_url(chosen["id"]), chosen["id"]
 
 
 def cache_key(original, year):
@@ -408,7 +438,8 @@ NO_MATCH = {
 def load_cache(path, log=print):
     """Load previously-enriched movies from a CSV into a lookup.
 
-    Keyed by (original title, year) -> (English title, Letterboxd URL, poster URL).
+    Keyed by (original title, year) ->
+    (English title, Letterboxd URL, poster URL, runtime, genres, language).
     Only rows that already have a Letterboxd link are cached, so movies that
     failed to match before are retried on the next run.
     """
@@ -425,6 +456,9 @@ def load_cache(path, log=print):
                         row.get("Movie title", ""),
                         letterboxd,
                         row.get("Poster", "") or "",
+                        row.get("Runtime", "") or "",
+                        row.get("Genres", "") or "",
+                        row.get("Language", "") or "",
                     )
     except Exception as exc:
         log(f"  (could not read cache {path}: {exc})")
@@ -435,10 +469,13 @@ def load_cache(path, log=print):
 
 
 def enrich_rows(rows, key, cache=None):
-    """Replace 'Movie title' with the English title and fill 'Letterboxd'.
+    """Replace 'Movie title' with the English title and fill 'Letterboxd',
+    'Poster', 'Runtime', 'Genres' and 'Language'.
 
     Movies already present in `cache` (e.g. loaded from a prior ugc.csv) are
-    reused as-is and never re-looked-up on TMDB.
+    reused as-is and never re-searched on TMDB; a cached movie missing its
+    details (cached before those columns existed) gets them filled once
+    via its Letterboxd page's TMDB id.
     """
     cache = cache if cache is not None else {}  # persistent: matches only
     seen = {}  # this run: every looked-up movie (matches and misses)
@@ -448,29 +485,38 @@ def enrich_rows(rows, key, cache=None):
         french = row.get("_french_title", "")
         ck = cache_key(original, row["Year"])
         if ck in NO_MATCH:
-            english, letterboxd, poster = "", "", ""
+            english, letterboxd, poster, runtime, genres, lang = "", "", "", "", "", ""
         elif ck in cache:
-            english, letterboxd, poster = cache[ck]
+            english, letterboxd, poster, runtime, genres, lang = cache[ck]
+            if not (runtime or genres or lang) and ck not in seen:
+                runtime, genres, lang = tmdb_details(letterboxd_tmdb_id(letterboxd), key)
+                print(f"  Details: {english} -> {runtime or '?'} min, {genres or '?'}, {lang or '?'}")
+                cache[ck] = (english, letterboxd, poster, runtime, genres, lang)
+                seen[ck] = cache[ck]  # only try the backfill once per run
             hits += 1
         elif ck in seen:
-            english, letterboxd, poster = seen[ck]
+            english, letterboxd, poster, runtime, genres, lang = seen[ck]
         elif not original.strip():
-            english, letterboxd, poster = "", "", ""
+            english, letterboxd, poster, runtime, genres, lang = "", "", "", "", "", ""
         else:
-            english, letterboxd = tmdb_enrich(
+            english, letterboxd, tmdb_id = tmdb_enrich(
                 [original, french], row["Year"], key, row.get("Director", ""))
             poster = letterboxd_poster(letterboxd)
+            runtime, genres, lang = tmdb_details(tmdb_id, key)
             print(f"  TMDB: {original} ({row['Year']}) -> "
                   f"{english or 'no match — kept original'}"
                   f"{' +poster' if poster else ''}")
-            seen[ck] = (english, letterboxd, poster)
+            seen[ck] = (english, letterboxd, poster, runtime, genres, lang)
             if letterboxd:  # only persist successful matches to the cache/CSV
-                cache[ck] = (english or original, letterboxd, poster)
+                cache[ck] = (english or original, letterboxd, poster, runtime, genres, lang)
         # Replace the title with the English one when we have a match.
         if english:
             row["Movie title"] = english
         row["Letterboxd"] = letterboxd
         row["Poster"] = poster
+        row["Runtime"] = runtime
+        row["Genres"] = genres
+        row["Language"] = lang
     if hits:
         print(f"  Reused {hits} showtimes from cache (no TMDB lookup).")
 
@@ -478,7 +524,8 @@ def enrich_rows(rows, key, cache=None):
 def write_csv(rows, path):
     fields = [
         "Movie title", "Original title", "Director", "Year", "Country", "cinema",
-        "date", "time", "Letterboxd", "Poster",
+        "date", "time", "Letterboxd", "Poster", "Runtime", "Genres",
+        "Language",
     ]
     with open(path, "w", newline="", encoding="utf-8") as f:
         # extrasaction="ignore" drops internal-only keys like "_french_title".
@@ -514,8 +561,8 @@ def scrape(start, tmdb_key=None, days=DAYS, log=print, cache=None):
     """Scrape `days` days from `start` (a date) across all cinemas.
 
     Returns the list of showtime rows, enriched via TMDB when a key is given.
-    `cache` is an optional (original title, year) -> (English title, Letterboxd)
-    lookup (e.g. from load_cache) used to skip already-known movies.
+    `cache` is an optional (original title, year) -> (English title, Letterboxd,
+    poster, runtime, genres, language) lookup (e.g. from load_cache) used to skip already-known movies.
     `log` is a callable for progress messages (use a no-op to silence).
     """
     dates = [(start + dt.timedelta(days=i)).isoformat() for i in range(days)]
