@@ -55,8 +55,9 @@
   .pill.all { font-weight:600; margin-right:6px; }
   .pill.all.on { color:var(--accent); }
   .dayrow { display:flex; align-items:baseline; gap:10px 16px; flex-wrap:wrap; }
-  .days { display:flex; flex-wrap:wrap; gap:5px 18px; flex:1 1 auto; min-width:0; }
-  .day { cursor:pointer; background:none; border:0; padding:0; font:inherit; font-size:13px; color:var(--muted); }
+  .days { display:flex; flex-wrap:wrap; align-items:baseline; gap:5px 18px; flex:1 1 auto; min-width:0; }
+  .day { cursor:pointer; background:none; border:0; padding:0; font:inherit; font-size:13px; color:var(--muted);
+         touch-action:none; user-select:none; -webkit-user-select:none; }  /* drag across days on touch */
   .day:hover { color:var(--fg); }
   .day.active { color:var(--accent); font-weight:600; }
   .sels { margin-left:auto; display:flex; gap:14px; }
@@ -110,7 +111,7 @@
   .mtitle a:hover { color:var(--accent); }
   .mby { color:var(--muted); font-size:13px; margin-top:1px; }
   .mdet { margin-top:3px; }
-  /* Lost in Frenchlation logo: in Daily, larger, between the film's lines
+  /* Lost in Frenchlation logo: in Showtimes, larger, between the film's lines
      and the cinema name; elsewhere, before the time. */
   .lif { display:inline-block; line-height:0; vertical-align:middle; }
   .lif img { width:24px; height:24px; display:block; }
@@ -162,7 +163,7 @@
   @media (max-width:560px) {
     .bar { flex-wrap:wrap; gap:12px 16px; }
     nav { margin-left:0; order:2; width:100%; flex-wrap:wrap; gap:4px 16px; }
-    /* Daily rows: the cinema drops under the director line instead of
+    /* Showtimes rows: the cinema drops under the director line instead of
        squeezing the title column (long names like Filmothèque…). */
     .ev { display:grid; grid-template-columns:46px auto minmax(0, 1fr); gap:0 16px; }
     .ev .t, .ev .poster { grid-row:1 / span 2; }
@@ -190,6 +191,9 @@
   body[data-skin="riso"] .pill.off { color:var(--muted); border-color:var(--faint); background:transparent; }
   body[data-skin="riso"] .pill.all { margin-right:0; }
   body[data-skin="riso"] .pill.all.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  body[data-skin="riso"] .pill.daypill.on { background:var(--accent2); border-color:var(--accent2); }
+  /* Day matches the Cinemas pill above it: 7 monospace characters + padding + border. */
+  body[data-skin] .pill.daypill { min-width:calc(7ch + 21px); }
   body[data-skin="riso"] .pills { gap:7px; }
   body[data-skin="riso"] .day { font-family:"Space Mono",ui-monospace,monospace; font-size:11.5px; }
   body[data-skin="riso"] .day.active { color:var(--accent2); font-weight:700; }
@@ -230,6 +234,7 @@
   body[data-skin="risonoir"] .pill.off { color:var(--muted); border-color:var(--faint); background:transparent; }
   body[data-skin="risonoir"] .pill.all { margin-right:0; }
   body[data-skin="risonoir"] .pill.all.on { background:var(--accent); color:#15131a; border-color:var(--accent); }
+  body[data-skin="risonoir"] .pill.daypill.on { background:var(--accent2); border-color:var(--accent2); }
   body[data-skin="risonoir"] .pills { gap:7px; }
   body[data-skin="risonoir"] .day { font-family:"Space Mono",ui-monospace,monospace; font-size:11.5px; }
   body[data-skin="risonoir"] .day.active { color:var(--accent2); font-weight:700; }
@@ -275,7 +280,7 @@
   <div class="bar">
     <span class="logo">Paris Cinemas</span>
     <nav id="tabs">
-      <button class="tab active" data-view="day">Daily</button>
+      <button class="tab active" data-view="day">Showtimes</button>
       <button class="tab" data-view="movie">Movies</button>
       <button class="tab" data-view="cinema">Cinemas</button>
     </nav>
@@ -297,7 +302,7 @@
 const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 let data = null, inited = false, _dataSig = null;
-const state = { view:"day", active:new Set(), minTime:"", daysActive:new Set(), movieDays:new Set(), pillsOpen:false, yearBuckets:new Set(), yearOpen:false, daysPristine:true, movieSort:"title", tspdtOnly:false, lifOnly:false };
+const state = { view:"day", active:new Set(), minTime:"", daysActive:new Set(), pillsOpen:false, yearBuckets:new Set(), yearOpen:false, movieSort:"title", tspdtOnly:false, lifOnly:false, daysOpen:false };
 
 // TSPDT "1,000 Greatest Films": Letterboxd slug -> rank, from tspdt.json
 // (snapshotted by fetch_tspdt.py). Stays empty if the file can't be loaded.
@@ -307,7 +312,7 @@ let tspdt = new Map(), tspdtEdition = "";
 // sorts by list rank and turns the TSPDT filter on.
 const SORT_OPTS = [["title", "A–Z"], ["old", "Oldest first"], ["new", "Newest first"], ["tspdt", "TSPDT rank"]];
 
-// Start-time filter options (Daily, Movies and Cinemas): [value, label].
+// Start-time filter options (Showtimes, Movies and Cinemas): [value, label].
 const TIME_OPTS = [
   ["", "Any time"], ["12:00", "After 12 pm"], ["14:00", "After 2 pm"],
   ["16:00", "After 4 pm"], ["17:00", "After 5 pm"], ["18:00", "After 6 pm"],
@@ -343,9 +348,8 @@ function detailLine(f){
 }
 const foldTitle = s => (s || "").normalize("NFD").replace(/[^\p{L}\p{N}]/gu, "").toLowerCase();
 function origTitle(f){ return f.orig && f.lang !== "en" && foldTitle(f.orig) !== foldTitle(f.title) ? f.orig : ""; }
-// Day selection is per-view: Movies keeps its own set (all days by default),
-// while Cinemas and Daily share one (today by default).
-function curDays(){ return state.view === "movie" ? state.movieDays : state.daysActive; }
+// One day selection, shared by every view.
+function curDays(){ return state.daysActive; }
 // Year filter: keep films at or below the selected year (unknown years kept).
 function yearInBuckets(y){
   if(state.yearBuckets.size === YEAR_BUCKETS.length) return true;  // all buckets = no filter
@@ -473,14 +477,13 @@ function renderDay(){
 }
 
 function renderMovies(){
-  // Days toggled on (chronological). Movies keeps its own day selection
-  // (state.movieDays), defaulting to the whole week.
-  const days = data.dates.filter(d => state.movieDays.has(d));
+  // Days toggled on (chronological).
+  const days = data.dates.filter(d => state.daysActive.has(d));
   // movie key -> {..., byDay: Map(date -> Map(cinema -> Set(times)))}
   const movies = new Map();
   for(const r of data.rows){
     if(!state.active.has(r.cinema)) continue;
-    if(!state.movieDays.has(r.date)) continue;
+    if(!state.daysActive.has(r.date)) continue;
     if(state.minTime && r.time < state.minTime) continue;
     if(!inLif(r)) continue;
     if(!yearInBuckets(r["Year"])) continue;
@@ -628,8 +631,8 @@ function renderControls(){
   const pillSig = [data.cinemas.map(x => x.name).join(","), [...state.active].sort().join(","),
     [...state.yearBuckets].sort().join(","), state.yearOpen, state.pillsOpen,
     state.tspdtOnly, tspdt.size, state.lifOnly, lifMap.size].join("|");
-  const daySig = [state.view, data.dates.join(","), [...state.daysActive].sort().join(","),
-    [...state.movieDays].sort().join(","), tspdt.size].join("|");
+  const daySig = [state.view, data.dates.join(","), [...state.daysActive].sort().join(","), state.daysOpen,
+    tspdt.size].join("|");
 
   // Cinemas and Year are collapsible pink buttons. Year sits beside Cinemas on
   // one row while Cinemas is collapsed (its buckets expand inline there too);
@@ -651,14 +654,12 @@ function renderControls(){
   if(state.pillsOpen) html += `<div class="pills">` + yearBtn + `</div>`;
   if(pillSig !== _pillSig){ _pillSig = pillSig; pillBox.innerHTML = html; }
   html = "";
-  // One multi-select day row for Cinemas, Daily and Movies; Weekly always shows
+  // One multi-select day row for Cinemas, Showtimes and Movies; Weekly always shows
   // the whole week. The "Any time" filter rides on the right of the same row.
   if(state.view !== "week"){
     const allDays = curDays().size === data.dates.length;
     const dayBtns = data.dates.map(d =>
-      `<button class="day${curDays().has(d) ? " active" : ""}" data-d="${esc(d)}">${isToday(d) ? "Today" : fmtDay(d)}</button>`).join("") +
-      // "All week" selects every day at once; tapping it again goes back to today.
-      `<button class="day${allDays ? " active" : ""}" data-week="1">All week</button>`;
+      `<button class="day${curDays().has(d) ? " active" : ""}" data-d="${esc(d)}">${isToday(d) ? "Today" : fmtDay(d)}</button>`).join("");
     const timeSel = (state.view === "day" || state.view === "movie" || state.view === "cinema")
       ? `<select id="minTime" class="sel" aria-label="Filter by start time">` +
         TIME_OPTS.map(([v,l]) => `<option value="${v}">${l}</option>`).join("") + `</select>`
@@ -668,7 +669,10 @@ function renderControls(){
         SORT_OPTS.filter(([v]) => v !== "tspdt" || tspdt.size)
           .map(([v,l]) => `<option value="${v}">${l}</option>`).join("") + `</select>`
       : "";
-    html += `<div class="dayrow"><div class="days">${dayBtns}</div><div class="sels">${sortSel}${timeSel}</div></div>`;
+    // "Day" is a collapsible blue pill like Cinemas: blue while the whole week
+    // is shown; it opens the day buttons, and closing them returns to all week.
+    const dayPill = `<button class="pill all daypill${allDays ? " on" : ""}" data-dayall="1" aria-expanded="${state.daysOpen}">Day</button>`;
+    html += `<div class="dayrow"><div class="days">${dayPill}${state.daysOpen ? dayBtns : ""}</div><div class="sels">${sortSel}${timeSel}</div></div>`;
   }
   if(daySig !== _daySig){ _daySig = daySig; dayBox.innerHTML = html; }
   // Selected values are set in place (see above), never by rebuilding.
@@ -698,33 +702,15 @@ function renderControls(){
     }
     renderAll();
   });
-  // Days multi-select. The first pick from the default (untouched) Daily/Cinemas
-  // selection replaces it, so clicking another date drops Today instead of adding.
-  // Movies: from the full week, a click isolates that day; deselecting the
-  // last remaining day goes back to the full week.
-  const weekBtn = c.querySelector("[data-week]");
-  if(weekBtn) weekBtn.onclick = () => {
-    const today = new Set([data.dates.includes(todayStr()) ? todayStr() : data.dates[0]]);
-    const all = new Set(data.dates), isAll = curDays().size === data.dates.length;
-    if(state.view === "movie") state.movieDays = isAll ? today : all;
-    else { state.daysActive = isAll ? today : all; state.daysPristine = isAll; }
+  // Days, the same in every view: the whole week by default; clicking a day
+  // shows just that day, and closing the Day pill goes back to the whole week.
+  const dayAllBtn = c.querySelector("[data-dayall]");
+  if(dayAllBtn) dayAllBtn.onclick = () => {
+    state.daysOpen = !state.daysOpen;
+    if(!state.daysOpen) state.daysActive = new Set(data.dates);
     renderAll();
   };
-  c.querySelectorAll(".day[data-d]").forEach(b => b.onclick = () => {
-    const d = b.dataset.d, s = curDays(), isDaily = s === state.daysActive;
-    if(s === state.movieDays){
-      if(s.size === data.dates.length) state.movieDays = new Set([d]);
-      else if(s.has(d)){ s.delete(d); if(!s.size) state.movieDays = new Set(data.dates); }
-      else s.add(d);
-    } else if(isDaily && state.daysPristine){
-      state.daysActive = new Set([d]);
-      state.daysPristine = false;
-    } else {
-      if(s.has(d)) s.delete(d); else s.add(d);
-      if(isDaily) state.daysPristine = false;
-    }
-    renderAll();
-  });
+  // Clicking, dragging and Cmd/Ctrl-clicking days is handled below (_dayDrag).
   const sel = c.querySelector("#minTime");
   if(sel) sel.onchange = () => { state.minTime = sel.value; renderAll(); };
   const yallBtn = c.querySelector("[data-yall]");
@@ -764,6 +750,58 @@ function renderControls(){
     renderAll();
   });
 }
+
+// --- Day buttons: click picks one day, dragging across days picks that run of
+// days (mouse or touch), Cmd/Ctrl-click adds or removes a single day. While
+// dragging only the buttons' highlight changes; the view re-renders on release
+// (rebuilding the buttons mid-drag would lose the pointer). ---
+let _dayDrag = null;
+function dayAt(x, y){
+  const b = document.elementFromPoint(x, y)?.closest(".day[data-d]");
+  return b ? data.dates.indexOf(b.dataset.d) : -1;
+}
+function dragRange(){
+  const [a, b] = [_dayDrag.start, _dayDrag.end].sort((x, y) => x - y);
+  return new Set(data.dates.slice(a, b + 1));
+}
+document.addEventListener("pointerdown", e => {
+  const b = e.target.closest?.(".day[data-d]");
+  if(!b || e.button !== 0) return;
+  e.preventDefault();
+  if(e.metaKey || e.ctrlKey){
+    const s = new Set(state.daysActive), d = b.dataset.d;
+    if(!s.has(d)) s.add(d);
+    else if(s.size > 1) s.delete(d);  // never leave no day selected
+    state.daysActive = s;
+    renderAll();
+    return;
+  }
+  const i = data.dates.indexOf(b.dataset.d);
+  _dayDrag = {id:e.pointerId, start:i, end:i};
+  document.querySelectorAll(".day[data-d]").forEach(x => x.classList.toggle("active", x === b));
+});
+document.addEventListener("pointermove", e => {
+  if(!_dayDrag || e.pointerId !== _dayDrag.id) return;
+  const i = dayAt(e.clientX, e.clientY);
+  if(i < 0 || i === _dayDrag.end) return;
+  _dayDrag.end = i;
+  const r = dragRange();
+  document.querySelectorAll(".day[data-d]").forEach(x => x.classList.toggle("active", r.has(x.dataset.d)));
+});
+document.addEventListener("pointerup", e => {
+  if(!_dayDrag || e.pointerId !== _dayDrag.id) return;
+  state.daysActive = dragRange();
+  _dayDrag = null;
+  renderAll();
+});
+document.addEventListener("pointercancel", () => { if(_dayDrag){ _dayDrag = null; renderAll(); } });
+// Keyboard (Enter/Space on a focused day) fires a click with no pointer: pick that day.
+document.addEventListener("click", e => {
+  const b = e.target.closest?.(".day[data-d]");
+  if(!b || e.detail !== 0) return;
+  state.daysActive = new Set([b.dataset.d]);
+  renderAll();
+});
 
 function renderStatus(){
   // Data is refreshed by the scheduled GitHub Action, not from the page, so
@@ -805,13 +843,9 @@ async function load(){
     setTimeout(load, 1500);
     return;
   }
-  // Default day selection: today if it's in the window, else the first day.
-  const defaultDays = () => new Set([data.dates.includes(todayStr()) ? todayStr() : data.dates[0]]);
   if(!inited){
     state.active = new Set(data.cinemas.map(c => c.name));
-    state.daysActive = defaultDays();
-    state.daysPristine = true;
-    state.movieDays = new Set(data.dates);
+    state.daysActive = new Set(data.dates);  // the whole week by default
     state.yearBuckets = new Set(YEAR_BUCKETS.map(b => b.k));
     inited = true;
   }
@@ -819,9 +853,7 @@ async function load(){
   // refresh drops yesterday and adds a new day).
   const valid = new Set(data.dates);
   for(const d of [...state.daysActive]) if(!valid.has(d)) state.daysActive.delete(d);
-  if(!state.daysActive.size) state.daysActive = defaultDays();
-  for(const d of [...state.movieDays]) if(!valid.has(d)) state.movieDays.delete(d);
-  if(!state.movieDays.size) state.movieDays = new Set(data.dates);
+  if(!state.daysActive.size) state.daysActive = new Set(data.dates);
   // Only re-render when the fetched data actually changed. During a refresh the
   // same cached rows are served every 1.5s; re-rendering them each time made the
   // view flicker. (User interactions render immediately via their own handlers.)
