@@ -40,7 +40,7 @@
 
   header { position:sticky; top:0; z-index:10; background:var(--bg); border-bottom:1px solid var(--line); }
   .bar { display:flex; align-items:baseline; gap:18px; padding:16px 0 0; }
-  .logo { font-size:17px; font-weight:600; letter-spacing:-.01em; }
+  .logo { font-size:17px; font-weight:600; letter-spacing:-.01em; color:inherit; text-decoration:none; }
   nav { margin-left:auto; display:flex; gap:20px; }
   .tab { cursor:pointer; color:var(--muted); padding-bottom:10px; border:0; border-bottom:2px solid transparent; margin-bottom:-1px; background:none; font:inherit; font-size:13.5px; }
   .tab:hover { color:var(--fg); }
@@ -278,7 +278,7 @@
 
 <header><div class="wrap">
   <div class="bar">
-    <span class="logo">Paris Cinemas</span>
+    <a class="logo" href="./">Paris Cinemas</a>
     <nav id="tabs">
       <button class="tab active" data-view="day">Showtimes</button>
       <button class="tab" data-view="movie">Movies</button>
