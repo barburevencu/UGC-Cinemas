@@ -12,7 +12,7 @@ Usage:
     python3 scrape_ugc.py 2026-06-20 -o out.csv
 
 CSV columns: Movie title, Original title, Director, Year, Country, cinema,
-date, time, Letterboxd, Poster, Runtime, Genres, Language
+date, time, Letterboxd, Poster, Runtime, Genres, Language, LiF
 
 When a TMDB API key is available (set the TMDB_API_KEY environment variable,
 or pass --tmdb-key), the "Movie title" is replaced with the film's English
@@ -21,11 +21,15 @@ title, the "Letterboxd" column is filled with its Letterboxd page, the
 "Genres" and "Language" (original language code, e.g. "en") with TMDB's
 details. Without a key, titles are left as scraped and
 those columns are blank.
+
+"LiF" holds the event page when a showtime is a Lost in Frenchlation
+screening (French film with English subtitles), matched from their events feed.
 """
 
 import argparse
 import csv
 import datetime as dt
+import html
 import json
 import os
 import re
@@ -521,11 +525,71 @@ def enrich_rows(rows, key, cache=None):
         print(f"  Reused {hits} showtimes from cache (no TMDB lookup).")
 
 
+LIF_EVENTS = "https://lostinfrenchlation.com/wp-json/tribe/events/v1/events"
+# Words too common to tell cinemas apart ("Cinéma du Panthéon" vs "Panthéon").
+_VENUE_NOISE = {"cinema", "des", "les", "the"}
+
+
+def lif_events(first_day, last_day, log=print):
+    """Lost in Frenchlation's events between two YYYY-MM-DD days ([] on failure)."""
+    events, page = [], 1
+    while True:
+        params = {"start_date": first_day, "end_date": f"{last_day} 23:59:59",
+                  "per_page": 50, "page": page}
+        req = urllib.request.Request(LIF_EVENTS + "?" + urllib.parse.urlencode(params),
+                                     headers={"User-Agent": HEADERS["User-Agent"]})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except (urllib.error.URLError, ValueError) as exc:
+            log(f"  ! Lost in Frenchlation feed unavailable: {exc}")
+            return events
+        events.extend(data.get("events") or [])
+        if page >= (data.get("total_pages") or 1):
+            return events
+        page += 1
+
+
+def _minutes(hhmm):
+    h, m = hhmm.split(":")[:2]
+    return int(h) * 60 + int(m)
+
+
+def mark_lif(rows, first_day, last_day, log=print):
+    """Fill 'LiF' with the event URL on showtimes that are Lost in Frenchlation
+    screenings: same day and cinema, a matching title, and a showtime starting
+    0-90 min after the event (their listed time includes pre-film drinks)."""
+    for row in rows:
+        row["LiF"] = ""
+    matched = 0
+    for ev in lif_events(first_day, last_day, log):
+        start = ev.get("start_date") or ""          # "2026-11-01 19:00:00"
+        day, ev_time = start[:10], start[11:16]
+        venue = name_tokens((ev.get("venue") or {}).get("venue", "")) - _VENUE_NOISE
+        title = name_tokens(html.unescape(ev.get("title") or ""))
+        if not (day and ev_time and venue and title):
+            continue
+        for row in rows:
+            if row["date"] != day or not row["time"]:
+                continue
+            cinema = name_tokens(row["cinema"]) - _VENUE_NOISE
+            if not cinema or not cinema <= venue:
+                continue
+            film = (name_tokens(row["Original title"]) | name_tokens(row["Movie title"])
+                    | name_tokens(row.get("_french_title", "")))
+            if not title <= film:
+                continue
+            if 0 <= _minutes(row["time"]) - _minutes(ev_time) <= 90:
+                row["LiF"] = ev.get("url") or "https://lostinfrenchlation.com/"
+                matched += 1
+    log(f"  Lost in Frenchlation: {matched} showtime(s) marked.")
+
+
 def write_csv(rows, path):
     fields = [
         "Movie title", "Original title", "Director", "Year", "Country", "cinema",
         "date", "time", "Letterboxd", "Poster", "Runtime", "Genres",
-        "Language",
+        "Language", "LiF",
     ]
     with open(path, "w", newline="", encoding="utf-8") as f:
         # extrasaction="ignore" drops internal-only keys like "_french_title".
@@ -583,6 +647,9 @@ def scrape(start, tmdb_key=None, days=DAYS, log=print, cache=None):
         enrich_rows(all_rows, tmdb_key, cache)
     else:
         log("\nNo TMDB key — titles left as-is and Letterboxd left blank.")
+
+    log("\nMatching Lost in Frenchlation screenings...")
+    mark_lif(all_rows, dates[0], dates[-1], log)
 
     # Sort by date, then cinema, time, title (now the English title).
     all_rows.sort(

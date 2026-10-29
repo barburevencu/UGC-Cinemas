@@ -75,18 +75,18 @@
 
   .film, .ev { display:flex; gap:16px; align-items:flex-start; padding:11px 0; border-bottom:1px solid var(--line); }
   .poster { flex:0 0 auto; width:46px; height:69px; object-fit:cover; border-radius:4px;
-            background:var(--line); box-shadow:0 1px 3px rgba(0,0,0,.14); cursor:pointer;
+            background:var(--line); box-shadow:0 1px 3px rgba(0,0,0,.14);
             transition:transform .12s ease, box-shadow .12s ease; }
   .poster:hover { transform:scale(1.07); box-shadow:0 4px 12px rgba(0,0,0,.35); }
 
   /* Poster lightbox: click a thumbnail to see it full size. */
   #lightbox { position:fixed; inset:0; z-index:100; display:none; align-items:center; justify-content:center;
-              background:rgba(10,8,12,.82); padding:24px; cursor:pointer; }
+              background:rgba(10,8,12,.82); padding:24px; }
   #lightbox.open { display:flex; }
   #lightbox img { max-width:92vw; max-height:88vh; border-radius:6px; box-shadow:0 16px 50px rgba(0,0,0,.55); }
   .ev .poster { width:34px; height:51px; }
   .info { flex:1; min-width:0; padding-top:1px; }
-  .ti { font-size:17px; }
+  .ti { font-size:15px; }
   .ti a { text-decoration:none; }
   .ti a:hover { color:var(--accent); }
   .by { color:var(--muted); font-size:13px; margin-top:1px; }
@@ -104,11 +104,23 @@
   .mhead { display:flex; gap:16px; align-items:flex-start; padding:26px 0 10px; border-bottom:1px solid var(--line); }
   .mhead .poster { width:46px; height:69px; }
   .minfo { flex:1; min-width:0; padding-top:1px; }
-  .mtitle { font-size:17px; font-weight:600; }
+  .mtitle { font-size:15px; font-weight:600; }
   .mtitle a { text-decoration:none; }
   .mtitle a:hover { color:var(--accent); }
   .mby { color:var(--muted); font-size:13px; margin-top:1px; }
   .mdet { margin-top:3px; }
+  /* Lost in Frenchlation logo: in Daily, larger, between the film's lines
+     and the cinema name; elsewhere, before the time. */
+  .lif { display:inline-block; line-height:0; vertical-align:middle; }
+  .lif img { width:24px; height:24px; display:block; }
+  /* Midway between the end of the film's lines and the start of the cinema
+     name (at least 16px from each), centred on those lines however many
+     they wrap to. */
+  .info.has-lif { display:flex; align-items:center; gap:16px; }
+  .info.has-lif .itext { min-width:0; }
+  .info.has-lif .lif { flex:0 0 auto; margin:0 auto; }
+  .ev .lif img { width:32px; height:32px; }
+  .times .lif, .mtimes .lif { margin-right:8px; }
   .morig { font-style:italic; }
   .mscreen { display:flex; gap:14px; align-items:baseline; padding:9px 0; border-bottom:1px solid var(--line); }
   .mdate { flex:0 0 72px; font-size:13px; font-weight:500; }
@@ -307,7 +319,7 @@ function isToday(s){ return s===todayStr(); }
 function fmtDay(iso){ const [y,m,d]=iso.split("-").map(Number); const dd=new Date(y,m-1,d); return WD[dd.getDay()]+" "+d; }
 function fmtUpdated(iso){ const [y,m,d]=iso.slice(0,10).split("-").map(Number); const dd=new Date(y,m-1,d); return WD[dd.getDay()]+", "+MO[m-1]+" "+d; }
 function metaLine(f){ return [f.director, f.year, f.country].filter(Boolean).join(" · "); }
-// Movies and Cinemas view lines. The credits line leads with the original title for
+// Film lines (credits in every view, details in Movies and Cinemas). The credits line leads with the original title for
 // non-English films when it differs from the English one beyond
 // accents/punctuation (AlloCiné's "12 Angry Men" is "Twelve Angry Men").
 // Returns HTML: "<i>Xia nü</i> · King Hu · 1971 · Taiwan".
@@ -345,6 +357,22 @@ function tspdtBadge(lb){
   if(r === undefined) return "";
   const t = `#${r} in TSPDT's 1,000 Greatest Films${tspdtEdition ? ", " + tspdtEdition : ""}`;
   return `<span class="tspdt" title="${esc(t)}" aria-label="${esc(t)}">#${r}</span>`;
+}
+
+// Lost in Frenchlation screenings (English subtitles): the scraper puts the
+// event page in each matching showtime's "LiF" field.
+let lifMap = new Map();
+const lifKey = (date, cinema, time, title) => [date, cinema, time, title].join("|");
+function indexLif(){
+  lifMap = new Map(data.rows.filter(r => r.LiF)
+    .map(r => [lifKey(r.date, r.cinema, r.time, r["Movie title"]), r.LiF]));
+}
+function lifTag(date, cinema, time, title){
+  const url = lifMap.get(lifKey(date, cinema, time, title));
+  if(!url) return "";
+  const t = "Lost in Frenchlation: English subtitles, drinks before the film";
+  return `<a class="lif" href="${esc(url)}" target="_blank" rel="noopener" title="${t}">` +
+    `<img src="lif.png" alt="${t}" width="24" height="24"></a>`;
 }
 
 function filmsFor(name, date){
@@ -391,7 +419,7 @@ function renderCinema(){
           <div class="ti">${titleLink(f.title, f.lb)}${tspdtBadge(f.lb)}</div>
           ${movieMetaLine(f) ? `<div class="by">${movieMetaLine(f)}</div>` : ""}
           ${detailLine(f) ? `<div class="by mdet">${esc(detailLine(f))}</div>` : ""}
-          </div><div class="times">${f.times.map(t => `<span>${esc(t)}</span>`).join("")}</div></div>`;
+          </div><div class="times">${f.times.map(t => `<span>${lifTag(date, c.name, t, f.title)}${esc(t)}</span>`).join("")}</div></div>`;
       }
     }
     html += `<div class="csec"><div class="chead">
@@ -414,7 +442,8 @@ function renderDay(){
       if(!state.active.has(c.name)) continue;
       for(const f of filmsFor(c.name, date))
         for(const t of f.times)
-          rows.push({time:t, title:f.title, lb:f.lb, poster:f.poster, meta:metaLine(f), cinema:c.name});
+          rows.push({time:t, title:f.title, lb:f.lb, poster:f.poster, meta:movieMetaLine(f), cinema:c.name,
+            lif:lifTag(date, c.name, t, f.title)});
     }
     const filtered = state.minTime ? rows.filter(r => r.time >= state.minTime) : rows;
     filtered.sort((a,b) => a.time.localeCompare(b.time) || a.title.localeCompare(b.title));
@@ -423,7 +452,7 @@ function renderDay(){
     for(const r of filtered){
       out += `<div class="ev"><div class="t">${esc(r.time)}</div>
         ${posterImg(r)}
-        <div class="info"><div class="ti">${titleLink(r.title, r.lb)}${tspdtBadge(r.lb)}</div>${r.meta ? `<div class="by">${esc(r.meta)}</div>` : ""}</div>
+        <div class="info${r.lif ? " has-lif" : ""}"><div class="itext"><div class="ti">${titleLink(r.title, r.lb)}${tspdtBadge(r.lb)}</div>${r.meta ? `<div class="by">${r.meta}</div>` : ""}</div>${r.lif}</div>
         <div class="cin">${esc(r.cinema)}</div></div>`;
     }
   }
@@ -492,7 +521,7 @@ function renderMovies(){
       for(const cn of cins){
         const times = [...dm.get(cn)].sort();
         inner += `<div class="mcin"><span class="mcname">${esc(cn)}</span>` +
-          `<span class="mtimes">${times.map(t => `<span>${esc(t)}</span>`).join("")}</span></div>`;
+          `<span class="mtimes">${times.map(t => `<span>${lifTag(date, cn, t, mv.title)}${esc(t)}</span>`).join("")}</span></div>`;
       }
       h += `<div class="mscreen"><div class="mdate${isToday(date) ? " today" : ""}">${isToday(date) ? "Today" : fmtDay(date)}</div>` +
         `<div class="mcins">${inner}</div></div>`;
@@ -732,6 +761,7 @@ async function load(){
   try { r = await fetch("data.json", {cache:"no-store"}); }
   catch(e) { document.getElementById("view").innerHTML = `<div class="note">Could not load data.json.</div>`; return; }
   data = await r.json();
+  indexLif();
   if(data.status === "scraping" && !data.rows.length){
     document.getElementById("status").textContent = "updating…";
     document.getElementById("view").innerHTML = `<div class="note">Fetching the latest week… (~30–60s)</div>`;
