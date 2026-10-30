@@ -45,6 +45,11 @@
   .tab { cursor:pointer; color:var(--muted); padding-bottom:12px; border:0; border-bottom:2px solid transparent; margin-bottom:-1px; background:none; font:inherit; font-size:13.5px; }
   .tab:hover { color:var(--fg); }
   .tab.active { color:var(--fg); border-bottom-color:var(--accent); }
+  /* Search box: after the tabs on wide screens; beside the logo on phones. */
+  .search { width:150px; font:inherit; font-size:13px; color:var(--fg); background:var(--bg);
+            border:1px solid var(--line); border-radius:4px; padding:3px 8px; align-self:center; margin-bottom:12px; }
+  .search::placeholder { color:var(--muted); }
+  .search:focus { outline:none; border-color:var(--accent); }
 
   .controls { display:flex; flex-direction:column; gap:12px; padding:20px 0 0; }
   .pillbox, .daybox { display:contents; }
@@ -175,6 +180,7 @@
   @media (max-width:560px) {
     .bar { flex-wrap:wrap; gap:12px 16px; }
     nav { margin-left:0; order:2; width:100%; flex-wrap:wrap; gap:4px 16px; }
+    .search { order:1; flex:1 1 0; width:auto; min-width:0; margin:0 0 0 8px; }
     /* Showtimes rows: the cinema drops under the director line instead of
        squeezing the title column (long names like Filmothèque…). */
     .ev { display:grid; grid-template-columns:46px auto minmax(0, 1fr); gap:0 16px; }
@@ -296,6 +302,12 @@
   /* A cinema's name heads its section, so it sits above the film titles. */
   body[data-skin] .cname { font-size:17px; }
 
+  body[data-skin] .search { font-family:"Space Mono",ui-monospace,monospace; font-size:11.5px;
+    border:1.5px solid var(--fg); border-radius:2px; padding:4px 8px; }
+  body[data-skin="riso"] .search { background:#fff; }
+  body[data-skin="risonoir"] .search { background:transparent; }
+  body[data-skin] .search:focus { border-color:var(--accent); }
+
   /* Time filter ("Any time") takes each skin's type + a matching pill box. */
   body[data-skin="riso"] .sel,
   body[data-skin="risonoir"] .sel { font-family:"Space Mono",ui-monospace,monospace; font-size:11.5px;
@@ -315,6 +327,8 @@
       <button class="tab" data-view="movie">Movies</button>
       <button class="tab" data-view="cinema">Cinemas</button>
     </nav>
+    <input id="search" class="search" type="search" placeholder="search" aria-label="Search films, directors, countries, cinemas"
+      autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
   </div>
 </div></header>
 
@@ -333,7 +347,7 @@
 const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 let data = null, inited = false, _dataSig = null;
-const initialState = () => ({ view:"day", active:new Set(), minTime:"", daysActive:new Set(), pillsOpen:false, yearBuckets:new Set(), yearOpen:false, movieSort:"title", tspdtOnly:false, lifOnly:false, daysOpen:false });
+const initialState = () => ({ view:"day", active:new Set(), minTime:"", daysActive:new Set(), pillsOpen:false, yearBuckets:new Set(), yearOpen:false, movieSort:"title", tspdtOnly:false, lifOnly:false, daysOpen:false, query:"" });
 const state = initialState();
 // First-load filters that depend on the data: every cinema, the whole week, every decade.
 function resetFilters(){
@@ -466,6 +480,32 @@ function indexLif(){
 }
 // "Lost in Frenchlation" pill (end of the Cinemas list): only their screenings.
 function inLif(r){ return !state.lifOnly || lifMap.has(lifKey(r.date, r.cinema, r.time, r["Movie title"])); }
+
+// Search box: every word must match the film (title, original title,
+// director, year, country, genres) or the cinema, ignoring case, accents and
+// punctuation ("melies" finds Méliès). A four-digit word is an exact year;
+// "1960s" or "60s" is a decade.
+const foldText = s => String(s == null ? "" : s).normalize("NFD").replace(/\p{M}/gu, "").toLowerCase()
+  .replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+const _hay = new WeakMap();
+function haystack(r){
+  let h = _hay.get(r);
+  if(h === undefined){
+    const y = parseInt(r["Year"], 10);
+    h = " " + foldText([r["Movie title"], r["Original title"], r["Director"], r["Country"], r["Genres"],
+      r.cinema, isNaN(y) ? "" : `${y} ${Math.floor(y / 10) * 10}s`].join(" ")) + " ";
+    _hay.set(r, h);
+  }
+  return h;
+}
+let _qWords = [];
+function setQuery(q){ state.query = q; _qWords = foldText(q).split(" ").filter(Boolean); }
+function inSearch(r){
+  if(!_qWords.length) return true;
+  const h = haystack(r);
+  return _qWords.every(w => /^\d{4}$/.test(w) ? String(r["Year"]) === w : h.includes(w));
+}
+const noMatch = () => `<div class="empty">Nothing matches \u201c${esc(state.query.trim())}\u201d.</div>`;
 function lifTag(date, cinema, time, title){
   const url = lifMap.get(lifKey(date, cinema, time, title));
   if(!url) return "";
@@ -479,7 +519,7 @@ function filmsFor(name, date){
   for(const r of data.rows){
     if(r.cinema !== name || r.date !== date) continue;
     if(state.minTime && r.time < state.minTime) continue;
-    if(!inLif(r)) continue;
+    if(!inLif(r) || !inSearch(r)) continue;
     const k = r["Movie title"] + "|" + r["Year"];
     let f = m.get(k);
     if(!f){ f = {title:r["Movie title"], orig:r["Original title"], director:r["Director"], year:r["Year"], country:r["Country"],
@@ -523,13 +563,14 @@ function renderCinema(){
           </div><div class="times">${f.times.map(t => `<span>${lifTag(date, c.name, t, f.title)}${esc(t)}</span>`).join("")}</div></div>`;
       }
     }
-    if(state.lifOnly && !any) continue;  // only cinemas hosting their screenings
+    if((state.lifOnly || _qWords.length) && !any) continue;  // only cinemas hosting their screenings
     html += `<div class="csec"><div class="chead">
       <span class="cname">${cinemaLink(c.name)}</span>
       <span class="caddr">${addressLink(c)}</span></div>`;
     html += any ? body : `<div class="empty">No screenings.</div>`;
     html += `</div>`;
   }
+  if(!html && _qWords.length) return noMatch();
   return html || `<div class="empty">${state.lifOnly ? "No Lost in Frenchlation screenings on these days." : "No cinema selected."}</div>`;
 }
 
@@ -558,7 +599,7 @@ function renderDay(){
         <div class="cin">${cinemaLink(r.cinema)}</div></div>`;
     }
   }
-  return out || `<div class="empty">No screenings.</div>`;
+  return out || (_qWords.length ? noMatch() : `<div class="empty">No screenings.</div>`);
 }
 
 function renderMovies(){
@@ -570,7 +611,7 @@ function renderMovies(){
     if(!state.active.has(r.cinema)) continue;
     if(!state.daysActive.has(r.date)) continue;
     if(state.minTime && r.time < state.minTime) continue;
-    if(!inLif(r)) continue;
+    if(!inLif(r) || !inSearch(r)) continue;
     if(!yearInBuckets(r["Year"])) continue;
     if(!inTspdt(r["Letterboxd"])) continue;
     const k = r["Movie title"] + "|" + r["Year"];
@@ -583,7 +624,7 @@ function renderMovies(){
     if(!ts){ ts = new Set(); dm.set(r.cinema, ts); }
     ts.add(r.time);
   }
-  if(!movies.size) return `<div class="empty">No screenings.</div>`;
+  if(!movies.size) return _qWords.length ? noMatch() : `<div class="empty">No screenings.</div>`;
   // Sort, then bucket each film for the side index: first letter (accents
   // folded, non-letters under "#") for A–Z, decade for year sorts, hundreds
   // of ranks ("1" = 1–99, "100" = 100–199, …) for TSPDT.
@@ -967,6 +1008,34 @@ document.getElementById("tabs").onclick = (e) => {
   renderAll();
 };
 
+// Search box: filters as you type (debounced) and is kept in the URL as ?q=
+// so a search can be shared. "/" focuses it; Esc clears it.
+const searchBox = document.getElementById("search");
+function setSearch(q){
+  if(searchBox.value !== q) searchBox.value = q;
+  setQuery(q);
+  const u = new URL(location.href);
+  if(q.trim()) u.searchParams.set("q", q.trim()); else u.searchParams.delete("q");
+  history.replaceState(null, "", u);
+}
+let _searchT = 0;
+searchBox.addEventListener("input", () => {
+  clearTimeout(_searchT);
+  _searchT = setTimeout(() => { setSearch(searchBox.value); if(data) renderAll(); }, 120);
+});
+searchBox.addEventListener("keydown", e => {
+  if(e.key === "Escape"){ clearTimeout(_searchT); setSearch(""); searchBox.blur(); if(data) renderAll(); }
+  if(e.key === "Enter") searchBox.blur();  // phones: put the keyboard away
+});
+document.addEventListener("keydown", e => {
+  if(e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+  if(e.target.closest?.("input, select, textarea, [contenteditable]")) return;
+  e.preventDefault();
+  searchBox.focus();
+  searchBox.select();
+});
+setSearch(new URLSearchParams(location.search).get("q") || "");
+
 // Logo: back to the first-load view without reloading (and re-downloading
 // data.json). Modified clicks keep the plain link, e.g. open in a new tab.
 document.querySelector(".logo").onclick = (e) => {
@@ -974,6 +1043,7 @@ document.querySelector(".logo").onclick = (e) => {
   e.preventDefault();
   Object.assign(state, initialState());
   resetFilters();
+  setSearch("");
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.view === "day"));
   renderAll();
   scrollTo({top:0, behavior:"smooth"});
