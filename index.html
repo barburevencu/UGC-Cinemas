@@ -45,9 +45,15 @@
   .tab { cursor:pointer; color:var(--muted); padding-bottom:12px; border:0; border-bottom:2px solid transparent; margin-bottom:-1px; background:none; font:inherit; font-size:13.5px; }
   .tab:hover { color:var(--fg); }
   .tab.active { color:var(--fg); border-bottom-color:var(--accent); }
-  /* Search box: after the tabs on wide screens; beside the logo on phones. */
+  /* Search: a magnifier after the tabs (beside the logo on phones) that opens
+     into a box; it closes again when left empty. */
+  .srch { display:flex; align-items:center; align-self:center; margin-bottom:12px; }
+  .sicon { display:flex; cursor:pointer; background:none; border:0; padding:2px; color:var(--muted); }
+  .sicon:hover, .sicon:focus-visible { color:var(--fg); }
+  .sicon svg { width:16px; height:16px; }
+  .srch.open .sicon, .srch:not(.open) .search { display:none; }
   .search { width:150px; font:inherit; font-size:13px; color:var(--fg); background:var(--bg);
-            border:1px solid var(--line); border-radius:4px; padding:3px 8px; align-self:center; margin-bottom:12px; }
+            border:1px solid var(--line); border-radius:4px; padding:3px 8px; }
   .search::placeholder { color:var(--muted); }
   .search:focus { outline:none; border-color:var(--accent); }
 
@@ -180,7 +186,9 @@
   @media (max-width:560px) {
     .bar { flex-wrap:wrap; gap:12px 16px; }
     nav { margin-left:0; order:2; width:100%; flex-wrap:wrap; gap:4px 16px; }
-    .search { order:1; flex:1 1 0; width:auto; min-width:0; margin:0 0 0 8px; }
+    .srch { order:1; margin:0 0 0 auto; }
+    .srch.open { flex:1 1 0; min-width:0; margin-left:8px; }
+    .srch.open .search { width:100%; min-width:0; }
     /* Showtimes rows: the cinema drops under the director line instead of
        squeezing the title column (long names like Filmothèque…). */
     .ev { display:grid; grid-template-columns:46px auto minmax(0, 1fr); gap:0 16px; }
@@ -327,8 +335,13 @@
       <button class="tab" data-view="movie">Movies</button>
       <button class="tab" data-view="cinema">Cinemas</button>
     </nav>
-    <input id="search" class="search" type="search" placeholder="search" aria-label="Search films, directors, countries, cinemas"
+    <div class="srch" id="srch">
+      <button class="sicon" id="sicon" type="button" aria-label="Search" title="Search (/)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+          <circle cx="6.75" cy="6.75" r="4.75"/><path d="M10.25 10.25 14.5 14.5"/></svg></button>
+      <input id="search" class="search" type="search" placeholder="search" aria-label="Search films, directors, countries, cinemas"
       autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+    </div>
   </div>
 </div></header>
 
@@ -1008,11 +1021,18 @@ document.getElementById("tabs").onclick = (e) => {
   renderAll();
 };
 
-// Search box: filters as you type (debounced) and is kept in the URL as ?q=
-// so a search can be shared. "/" focuses it; Esc clears it.
-const searchBox = document.getElementById("search");
+// Search box: the magnifier opens it; it filters as you type (debounced) and
+// is kept in the URL as ?q= so a search can be shared. "/" opens it; Esc
+// clears and closes it, as does leaving it empty.
+const searchBox = document.getElementById("search"), srch = document.getElementById("srch");
+function openSearch(){ srch.classList.add("open"); searchBox.focus(); searchBox.select(); }
+function closeSearch(){ srch.classList.remove("open"); }
+document.getElementById("sicon").onclick = openSearch;
+searchBox.addEventListener("blur", () => { if(!searchBox.value.trim()) closeSearch(); });
 function setSearch(q){
   if(searchBox.value !== q) searchBox.value = q;
+  if(q.trim()) srch.classList.add("open");
+  else if(document.activeElement !== searchBox) closeSearch();
   setQuery(q);
   const u = new URL(location.href);
   if(q.trim()) u.searchParams.set("q", q.trim()); else u.searchParams.delete("q");
@@ -1024,15 +1044,14 @@ searchBox.addEventListener("input", () => {
   _searchT = setTimeout(() => { setSearch(searchBox.value); if(data) renderAll(); }, 120);
 });
 searchBox.addEventListener("keydown", e => {
-  if(e.key === "Escape"){ clearTimeout(_searchT); setSearch(""); searchBox.blur(); if(data) renderAll(); }
+  if(e.key === "Escape"){ clearTimeout(_searchT); setSearch(""); searchBox.blur(); closeSearch(); if(data) renderAll(); }
   if(e.key === "Enter") searchBox.blur();  // phones: put the keyboard away
 });
 document.addEventListener("keydown", e => {
   if(e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
   if(e.target.closest?.("input, select, textarea, [contenteditable]")) return;
   e.preventDefault();
-  searchBox.focus();
-  searchBox.select();
+  openSearch();
 });
 setSearch(new URLSearchParams(location.search).get("q") || "");
 
