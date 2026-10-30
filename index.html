@@ -179,9 +179,8 @@
        squeezing the title column (long names like Filmothèque…). */
     .ev { display:grid; grid-template-columns:46px auto minmax(0, 1fr); gap:0 16px; }
     .ev .t, .ev .poster { grid-row:1 / span 2; }
-    /* Rows here are always 3+ lines: the poster's top sits level with the
-       title's capitals (5.7px below the row's top padding, Archivo 15px). */
-    .ev .poster { align-self:start; margin-top:5.7px; }
+    /* The poster centres vertically in its row's text block. */
+    .ev .poster { align-self:center; margin-top:0; }
     .ev .info, .ev .cin { grid-column:3; }
     .ev .cin { white-space:normal; margin-top:1px; }  /* same gap as title to director */
     /* Film lines: just director and year (see movieMetaLine). */
