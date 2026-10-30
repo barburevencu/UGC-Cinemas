@@ -379,11 +379,41 @@ function fmtUpdated(iso){ const [y,m,d]=iso.slice(0,10).split("-").map(Number); 
 function movieMetaLine(f){
   const orig = origTitle(f);
   const parts = [[f.director, ""], [f.year, ""], [f.country, "ph-hide"]].filter(([v]) => v);
-  const rest = parts.map(([v, cls], i) =>
-    `<span${cls ? ` class="${cls}"` : ""}>${i ? " · " : ""}${esc(v)}</span>`).join("");
+  const rest = parts.map(([v, cls], i) => {
+    // Several directors: carry a short form for fitDirectors.
+    if(v === f.director && v.includes(", "))
+      return `<span class="dir" data-full="${esc(v)}" data-short="${esc(shortDirectors(v))}">${esc(v)}</span>`;
+    return `<span${cls ? ` class="${cls}"` : ""}>${i ? " · " : ""}${esc(v)}</span>`;
+  }).join("");
   const lead = orig ? `<span class="ph-hide"><span class="morig">${esc(orig)}</span>${rest ? " · " : ""}</span>` : "";
   return lead + rest;
 }
+// "Basile Monnot, Samy Bouyssie" → "B. Monnot, S. Bouyssie": each first name
+// becomes its initial ("Jean-Christophe" → "J.-C."), the rest is kept as is.
+function shortDirectors(s){
+  return s.split(", ").map(n => {
+    const [first, ...rest] = n.split(" ");
+    if(!rest.length) return n;
+    return [first.split("-").map(p => p[0] + ".").join("-"), ...rest].join(" ");
+  }).join(", ");
+}
+// Phones, Showtimes view: a film line whose several directors push it onto two rows switches
+// to their short form. All lines are reset first, measured, then shortened, so
+// layout is read once.
+const PHONE = matchMedia("(max-width:560px)");
+function fitDirectors(){
+  const dirs = [...document.querySelectorAll("#view .ev .dir")];
+  for(const d of dirs) if(d.textContent !== d.dataset.full) d.textContent = d.dataset.full;
+  if(!PHONE.matches) return;
+  const wraps = dirs.filter(d => {
+    const tops = [...d.parentElement.children].flatMap(c => [...c.getClientRects()].map(r => r.top));
+    return tops.length && Math.max(...tops) - Math.min(...tops) > 2;
+  });
+  for(const d of wraps) d.textContent = d.dataset.short;
+}
+addEventListener("resize", () => { if(data) fitDirectors(); });
+document.fonts.ready.then(() => { if(data) fitDirectors(); });
+
 // "129 min · Drama, History" (two genres at most).
 function detailLine(f){
   const genres = (f.genres || "").split(", ").filter(Boolean).slice(0, 2).join(", ");
@@ -884,6 +914,7 @@ function renderAll(){
   setView(
     state.view === "cinema" ? renderCinema() :
     state.view === "movie"  ? renderMovies() : renderDay());
+  fitDirectors();
   renderIndex();
 }
 
