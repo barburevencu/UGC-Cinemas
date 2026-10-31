@@ -335,8 +335,8 @@
     <a class="logo" href="./">Paris Cinemas</a>
     <nav id="tabs">
       <button class="tab active" data-view="day">Showtimes</button>
-      <button class="tab" data-view="movie">Movies</button>
       <button class="tab" data-view="cinema">Cinemas</button>
+      <button class="tab" data-view="movie">Movies</button>
     </nav>
     <div class="srch" id="srch">
       <button class="sicon" id="sicon" type="button" aria-label="Search" title="Search (/)">
@@ -778,14 +778,16 @@ function renderControls(){
 
   // Cinemas and Year are collapsible pink buttons. Year sits beside Cinemas on
   // one row while Cinemas is collapsed (its buckets expand inline there too);
-  // once Cinemas is expanded, Year drops to its own row below.
+  // once Cinemas is expanded, Year drops to its own row below. TSPDT follows
+  // Year the same way: beside it while Year is collapsed, on its own row below
+  // once Year is expanded.
   const allYears = state.yearBuckets.size === YEAR_BUCKETS.length;
+  // TSPDT toggle: pink while it limits the view to list films.
+  const tspdtPill = tspdt.size ? `<button class="pill all${state.tspdtOnly ? " on" : ""}" data-tspdt="1" aria-pressed="${state.tspdtOnly}"` +
+    ` title="Only films in TSPDT's 1,000 Greatest Films, with their rank">TSPDT</button>` : "";
   const yearBtn = `<button class="pill all${allYears ? " on" : ""}" data-yall="1">Year</button>` +
     (state.yearOpen ? YEAR_BUCKETS.map(b =>
-      `<button class="pill${state.yearBuckets.has(b.k) ? "" : " off"}" data-y="${b.k}">${esc(b.label)}</button>`).join("") : "") +
-    // TSPDT toggle rides after Year: pink while it limits the view to list films.
-    (tspdt.size ? `<button class="pill all${state.tspdtOnly ? " on" : ""}" data-tspdt="1" aria-pressed="${state.tspdtOnly}"` +
-      ` title="Only films in TSPDT's 1,000 Greatest Films, with their rank">TSPDT</button>` : "");
+      `<button class="pill${state.yearBuckets.has(b.k) ? "" : " off"}" data-y="${b.k}">${esc(b.label)}</button>`).join("") : tspdtPill);
   const cinemaPills = state.pillsOpen ? data.cinemas.map(x =>
     `<button class="pill${state.active.has(x.name) ? "" : " off"}" data-n="${esc(x.name)}">${esc(x.name)}</button>`).join("") +
     (lifMap.size ? `<button class="pill lifpill${state.lifOnly ? " on" : ""}" data-lif="1" aria-pressed="${state.lifOnly}"` +
@@ -794,6 +796,7 @@ function renderControls(){
     `<button class="pill all${allActive ? " on" : ""}" data-all="1">Cinemas</button>` +
     cinemaPills + (state.pillsOpen ? "" : yearBtn) + `</div>`;
   if(state.pillsOpen) html += `<div class="pills">` + yearBtn + `</div>`;
+  if(state.yearOpen && tspdtPill) html += `<div class="pills">` + tspdtPill + `</div>`;
   if(pillSig !== _pillSig){ _pillSig = pillSig; pillBox.innerHTML = html; }
   html = "";
   // One multi-select day row for Cinemas, Showtimes and Movies; Weekly always shows
